@@ -49,184 +49,20 @@ DMA_HandleTypeDef hdma_usart2_rx;
 DMA_HandleTypeDef hdma_usart2_tx;
 volatile adc_buf_t adc_buffer;
 
-
 #ifdef CONTROL_SERIAL_USART2
-
-
-void UART_Control_Init() {
-  GPIO_InitTypeDef GPIO_InitStruct;
-  __HAL_RCC_USART2_CLK_ENABLE();
-  /* DMA1_Channel6_IRQn interrupt configuration */
-  //HAL_NVIC_SetPriority(DMA1_Channel6_IRQn, 5, 6);
-  //HAL_NVIC_EnableIRQ(DMA1_Channel6_IRQn);
-  HAL_NVIC_SetPriority(DMA1_Channel6_IRQn, 5, 6);
-  HAL_NVIC_EnableIRQ(DMA1_Channel6_IRQn);
-  /* DMA1_Channel7_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA1_Channel7_IRQn, 5, 7);
-  HAL_NVIC_EnableIRQ(DMA1_Channel7_IRQn);
-
-  huart2.Instance = USART2;
-  huart2.Init.BaudRate = CONTROL_BAUD;
-  huart2.Init.WordLength = UART_WORDLENGTH_8B;
-  huart2.Init.StopBits = UART_STOPBITS_1;
-  huart2.Init.Parity = UART_PARITY_NONE;
-  huart2.Init.Mode = UART_MODE_TX_RX;
-  huart2.Init.HwFlowCtl = UART_HWCONTROL_NONE;
- // huart2.Init.OverSampling = UART_OVERSAMPLING_16;
-  HAL_UART_Init(&huart2);
-
-
-  __HAL_RCC_DMA1_CLK_ENABLE();
-  /* USER CODE BEGIN USART2_MspInit 0 */
-   __HAL_RCC_GPIOA_CLK_ENABLE();
-  /* USER CODE END USART2_MspInit 0 */
-   /* Peripheral clock enable */
-   __HAL_RCC_USART2_CLK_ENABLE();
-
- GPIO_InitStruct.Pull = GPIO_PULLUP; //GPIO_NOPULL;
- GPIO_InitStruct.Pin = GPIO_PIN_2;
- GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
- GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
- HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-
- GPIO_InitStruct.Pin = GPIO_PIN_3;
- GPIO_InitStruct.Mode = GPIO_MODE_INPUT; //GPIO_MODE_AF_PP;
-// GPIO_InitStruct.Pull = GPIO_NOPULL;
- HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-
- /* Peripheral DMA init*/
-
- hdma_usart2_rx.Instance = DMA1_Channel6;
- hdma_usart2_rx.Init.Direction = DMA_PERIPH_TO_MEMORY;
- hdma_usart2_rx.Init.PeriphInc = DMA_PINC_DISABLE;
- hdma_usart2_rx.Init.MemInc = DMA_MINC_ENABLE;
- hdma_usart2_rx.Init.PeriphDataAlignment = DMA_PDATAALIGN_BYTE;
- hdma_usart2_rx.Init.MemDataAlignment = DMA_MDATAALIGN_BYTE;
- hdma_usart2_rx.Init.Mode = DMA_CIRCULAR; //DMA_NORMAL;
- hdma_usart2_rx.Init.Priority = DMA_PRIORITY_LOW;
- HAL_DMA_Init(&hdma_usart2_rx);
-
- __HAL_LINKDMA(&huart2,hdmarx,hdma_usart2_rx);
-
- hdma_usart2_tx.Instance = DMA1_Channel7;
- hdma_usart2_tx.Init.Direction = DMA_MEMORY_TO_PERIPH;
- hdma_usart2_tx.Init.PeriphInc = DMA_PINC_DISABLE;
- hdma_usart2_tx.Init.MemInc = DMA_MINC_ENABLE;
- hdma_usart2_tx.Init.PeriphDataAlignment = DMA_PDATAALIGN_BYTE;
- hdma_usart2_tx.Init.MemDataAlignment = DMA_MDATAALIGN_BYTE;
- hdma_usart2_tx.Init.Mode = DMA_NORMAL;
- hdma_usart2_tx.Init.Priority = DMA_PRIORITY_LOW;
-HAL_DMA_Init(&hdma_usart2_tx);
- __HAL_LINKDMA(&huart2,hdmatx,hdma_usart2_tx);
-}
-
 #endif
 
 #ifdef DEBUG_SERIAL_USART3
-void UART_Init() {
-  __HAL_RCC_USART3_CLK_ENABLE();
-  __HAL_RCC_DMA1_CLK_ENABLE();
-
-  UART_HandleTypeDef huart3;
-  huart3.Instance          = USART3;
-  huart3.Init.BaudRate     = DEBUG_BAUD;
-  huart3.Init.WordLength   = UART_WORDLENGTH_8B;
-  huart3.Init.StopBits     = UART_STOPBITS_1;
-  huart3.Init.Parity       = UART_PARITY_NONE;
-  huart3.Init.Mode         = UART_MODE_TX;
-  huart3.Init.HwFlowCtl    = UART_HWCONTROL_NONE;
-  huart3.Init.OverSampling = UART_OVERSAMPLING_16;
-  HAL_UART_Init(&huart3);
-
-  USART3->CR3 |= USART_CR3_DMAT;  // | USART_CR3_DMAR | USART_CR3_OVRDIS;
-
-  GPIO_InitTypeDef GPIO_InitStruct;
-  GPIO_InitStruct.Pin   = GPIO_PIN_10;
-  GPIO_InitStruct.Pull  = GPIO_PULLUP;
-  GPIO_InitStruct.Mode  = GPIO_MODE_AF_PP;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
-  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
-
-  DMA1_Channel2->CCR   = 0;
-  DMA1_Channel2->CPAR  = (uint32_t) & (USART3->DR);
-  DMA1_Channel2->CNDTR = 0;
-  DMA1_Channel2->CCR   = DMA_CCR_MINC | DMA_CCR_DIR;
-  DMA1->IFCR           = DMA_IFCR_CTCIF2 | DMA_IFCR_CHTIF2 | DMA_IFCR_CGIF2;
-}
 #endif
 
 #ifdef DEBUG_SERIAL_USART2
-void UART_Init() {
-  __HAL_RCC_USART2_CLK_ENABLE();
-  __HAL_RCC_DMA1_CLK_ENABLE();
-
-  UART_HandleTypeDef huart2;
-  huart2.Instance          = USART2;
-  huart2.Init.BaudRate     = DEBUG_BAUD;
-  huart2.Init.WordLength   = UART_WORDLENGTH_8B;
-  huart2.Init.StopBits     = UART_STOPBITS_1;
-  huart2.Init.Parity       = UART_PARITY_NONE;
-  huart2.Init.Mode         = UART_MODE_TX;
-  huart2.Init.HwFlowCtl    = UART_HWCONTROL_NONE;
-  huart2.Init.OverSampling = UART_OVERSAMPLING_16;
-  HAL_UART_Init(&huart2);
-
-  USART2->CR3 |= USART_CR3_DMAT;  // | USART_CR3_DMAR | USART_CR3_OVRDIS;
-
-  GPIO_InitTypeDef GPIO_InitStruct;
-  GPIO_InitStruct.Pin   = GPIO_PIN_2;
-  GPIO_InitStruct.Pull  = GPIO_PULLUP;
-  GPIO_InitStruct.Mode  = GPIO_MODE_AF_PP;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
-  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-
-  DMA1_Channel7->CCR   = 0;
-  DMA1_Channel7->CPAR  = (uint32_t) & (USART2->DR);
-  DMA1_Channel7->CNDTR = 0;
-  DMA1_Channel7->CCR   = DMA_CCR_MINC | DMA_CCR_DIR;
-  DMA1->IFCR           = DMA_IFCR_CTCIF7 | DMA_IFCR_CHTIF7 | DMA_IFCR_CGIF7;
-}
 #endif
-
-/*
-void UART_Init() {
-  __HAL_RCC_USART2_CLK_ENABLE();
-  __HAL_RCC_DMA1_CLK_ENABLE();
-
-  UART_HandleTypeDef huart2;
-  huart2.Instance          = USART2;
-  huart2.Init.BaudRate     = 115200;
-  huart2.Init.WordLength   = UART_WORDLENGTH_8B;
-  huart2.Init.StopBits     = UART_STOPBITS_1;
-  huart2.Init.Parity       = UART_PARITY_NONE;
-  huart2.Init.Mode         = UART_MODE_TX;
-  huart2.Init.HwFlowCtl    = UART_HWCONTROL_NONE;
-  huart2.Init.OverSampling = UART_OVERSAMPLING_16;
-  HAL_UART_Init(&huart2);
-
-  USART2->CR3 |= USART_CR3_DMAT;  // | USART_CR3_DMAR | USART_CR3_OVRDIS;
-
-  GPIO_InitTypeDef GPIO_InitStruct;
-  GPIO_InitStruct.Pin   = GPIO_PIN_2;
-  GPIO_InitStruct.Pull  = GPIO_PULLUP;
-  GPIO_InitStruct.Mode  = GPIO_MODE_AF_PP;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
-  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-
-  DMA1_Channel7->CCR   = 0;
-  DMA1_Channel7->CPAR  = (uint32_t) & (USART3->DR);
-  DMA1_Channel7->CNDTR = 0;
-  DMA1_Channel7->CCR   = DMA_CCR_MINC | DMA_CCR_DIR;
-  DMA1->IFCR           = DMA_IFCR_CTCIF7 | DMA_IFCR_CHTIF7 | DMA_IFCR_CGIF7;
-}
-*/
 
 DMA_HandleTypeDef hdma_i2c2_rx;
 DMA_HandleTypeDef hdma_i2c2_tx;
 
 void I2C_Init()
 {
-
   __HAL_RCC_I2C2_CLK_ENABLE();
   __HAL_RCC_DMA1_CLK_ENABLE();
 
@@ -303,7 +139,6 @@ void I2C_Init()
   /* USER CODE BEGIN I2C2_MspInit 1 */
 
   /* USER CODE END I2C2_MspInit 1 */
-
 
 }
 
@@ -426,7 +261,6 @@ void MX_GPIO_Init(void) {
 
 void MX_TIM_Init(void) {
   __HAL_RCC_TIM1_CLK_ENABLE();
-  __HAL_RCC_TIM8_CLK_ENABLE();
 
   TIM_MasterConfigTypeDef sMasterConfig;
   TIM_OC_InitTypeDef sConfigOC;
@@ -466,52 +300,7 @@ void MX_TIM_Init(void) {
   sBreakDeadTimeConfig.AutomaticOutput  = TIM_AUTOMATICOUTPUT_DISABLE;
   HAL_TIMEx_ConfigBreakDeadTime(&htim_right, &sBreakDeadTimeConfig);
 
-  htim_left.Instance               = LEFT_TIM;
-  htim_left.Init.Prescaler         = 0;
-  htim_left.Init.CounterMode       = TIM_COUNTERMODE_CENTERALIGNED1;
-  htim_left.Init.Period            = 64000000 / 2 / PWM_FREQ;
-  htim_left.Init.ClockDivision     = TIM_CLOCKDIVISION_DIV1;
-  htim_left.Init.RepetitionCounter = 0;
-  htim_left.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-  HAL_TIM_PWM_Init(&htim_left);
-
-  sMasterConfig.MasterOutputTrigger = TIM_TRGO_UPDATE;
-  sMasterConfig.MasterSlaveMode     = TIM_MASTERSLAVEMODE_ENABLE;
-  HAL_TIMEx_MasterConfigSynchronization(&htim_left, &sMasterConfig);
-
-  sTimConfig.InputTrigger = TIM_TS_ITR0;
-  sTimConfig.SlaveMode    = TIM_SLAVEMODE_GATED;
-  HAL_TIM_SlaveConfigSynchronization(&htim_left, &sTimConfig);
-
-  sConfigOC.OCMode       = TIM_OCMODE_PWM1;
-  sConfigOC.Pulse        = 0;
-  sConfigOC.OCPolarity   = TIM_OCPOLARITY_HIGH;
-  sConfigOC.OCNPolarity  = TIM_OCNPOLARITY_LOW;
-  sConfigOC.OCFastMode   = TIM_OCFAST_DISABLE;
-  sConfigOC.OCIdleState  = TIM_OCIDLESTATE_RESET;
-  sConfigOC.OCNIdleState = TIM_OCNIDLESTATE_SET;
-  HAL_TIM_PWM_ConfigChannel(&htim_left, &sConfigOC, TIM_CHANNEL_1);
-  HAL_TIM_PWM_ConfigChannel(&htim_left, &sConfigOC, TIM_CHANNEL_2);
-  HAL_TIM_PWM_ConfigChannel(&htim_left, &sConfigOC, TIM_CHANNEL_3);
-
-  sBreakDeadTimeConfig.OffStateRunMode  = TIM_OSSR_ENABLE;
-  sBreakDeadTimeConfig.OffStateIDLEMode = TIM_OSSI_ENABLE;
-  sBreakDeadTimeConfig.LockLevel        = TIM_LOCKLEVEL_OFF;
-  sBreakDeadTimeConfig.DeadTime         = DEAD_TIME;
-  sBreakDeadTimeConfig.BreakState       = TIM_BREAK_DISABLE;
-  sBreakDeadTimeConfig.BreakPolarity    = TIM_BREAKPOLARITY_LOW;
-  sBreakDeadTimeConfig.AutomaticOutput  = TIM_AUTOMATICOUTPUT_DISABLE;
-  HAL_TIMEx_ConfigBreakDeadTime(&htim_left, &sBreakDeadTimeConfig);
-
-  LEFT_TIM->BDTR &= ~TIM_BDTR_MOE;
   RIGHT_TIM->BDTR &= ~TIM_BDTR_MOE;
-
-  HAL_TIM_PWM_Start(&htim_left, TIM_CHANNEL_1);
-  HAL_TIM_PWM_Start(&htim_left, TIM_CHANNEL_2);
-  HAL_TIM_PWM_Start(&htim_left, TIM_CHANNEL_3);
-  HAL_TIMEx_PWMN_Start(&htim_left, TIM_CHANNEL_1);
-  HAL_TIMEx_PWMN_Start(&htim_left, TIM_CHANNEL_2);
-  HAL_TIMEx_PWMN_Start(&htim_left, TIM_CHANNEL_3);
 
   HAL_TIM_PWM_Start(&htim_right, TIM_CHANNEL_1);
   HAL_TIM_PWM_Start(&htim_right, TIM_CHANNEL_2);
@@ -520,10 +309,9 @@ void MX_TIM_Init(void) {
   HAL_TIMEx_PWMN_Start(&htim_right, TIM_CHANNEL_2);
   HAL_TIMEx_PWMN_Start(&htim_right, TIM_CHANNEL_3);
 
-  htim_left.Instance->RCR = 1;
-
   __HAL_TIM_ENABLE(&htim_right);
 }
+
 
 void MX_ADC1_Init(void) {
   ADC_MultiModeTypeDef multimode;

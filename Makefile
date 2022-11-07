@@ -38,19 +38,27 @@ Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_dma.c \
 Src/system_stm32f1xx.c \
 Src/setup.c \
 Src/control.c \
+Src/comms.c \
+Src/util.c \
 Src/main.c \
 Src/bldc.c \
-Src/comms.c \
+Src/eeprom.c \
+Src/hd44780.c \
+Src/pcf8574.c \
 Src/stm32f1xx_it.c \
+Src/BLDC_controller_data.c \
+Src/BLDC_controller.c
 
 # ASM sources
 ASM_SOURCES =  \
-startup_stm32f103xe.s
+startup_stm32f103xb.s
+#startup_stm32f103xe.s
 
 #######################################
 # binaries
 #######################################
 PREFIX = arm-none-eabi-
+#PREFIX = gcc-arm-none-eabi-7/bin/arm-none-eabi-
 CC = $(PREFIX)gcc
 AS = $(PREFIX)gcc -x assembler-with-cpp
 CP = $(PREFIX)objcopy
@@ -58,6 +66,7 @@ AR = $(PREFIX)ar
 SZ = $(PREFIX)size
 HEX = $(CP) -O ihex
 BIN = $(CP) -O binary -S
+GDB= $(PREFIX)gdb
 
 #######################################
 # CFLAGS
@@ -81,7 +90,8 @@ AS_DEFS =
 # C defines
 C_DEFS =  \
 -DUSE_HAL_DRIVER \
--DSTM32F103xE
+-DSTM32F103xB
+#-DSTM32F103xE
 
 
 # AS includes
@@ -105,16 +115,23 @@ ifeq ($(DEBUG), 1)
 CFLAGS += -g -gdwarf-2
 endif
 
-
 # Generate dependency information
 CFLAGS += -MMD -MP -MF"$(@:%.o=%.d)" -MT"$(@:%.o=%.d)"
+
+# Choose variant from env var
+# make -e VARIANT=VARIANT_ADC
+
+ifneq ($(VARIANT), )
+CFLAGS += -D $(VARIANT)
+endif
 
 
 #######################################
 # LDFLAGS
 #######################################
 # link script
-LDSCRIPT = STM32F103RCTx_FLASH.ld
+#LDSCRIPT = STM32F103RCTx_FLASH.ld
+LDSCRIPT = STM32F103C8Tx_FLASH.ld
 
 # libraries
 LIBS = -lc -lm -lnosys
@@ -162,11 +179,15 @@ format:
 clean:
 	-rm -fR .dep $(BUILD_DIR)
 
-flash:
+flash:	$(BUILD_DIR)/$(TARGET).bin
 	st-flash --reset write $(BUILD_DIR)/$(TARGET).bin 0x8000000
 
 unlock:
 	openocd -f interface/stlink-v2.cfg -f target/stm32f1x.cfg -c init -c "reset halt" -c "stm32f1x unlock 0"
+
+gdb:	$(BUILD_DIR)/$(TARGET).elf
+#       st-util -p 4242 & // you may type this once
+	$(GDB) --eval-command="target extended-remote :4242" $(BUILD_DIR)/$(TARGET).elf
 
 #######################################
 # dependencies
