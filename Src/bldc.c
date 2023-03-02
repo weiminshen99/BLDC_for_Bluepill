@@ -166,14 +166,6 @@ void DMA1_Channel1_IRQHandler() {
   }
 
   //disable PWM when current limit is reached (current chopping)
-  if(ABS((adc_buffer.dcl - offsetdcl) * MOTOR_AMP_CONV_DC_AMP) > DC_CUR_LIMIT || timeout > TIMEOUT || enable == 0) {
-    LEFT_TIM->BDTR &= ~TIM_BDTR_MOE;
-    //HAL_GPIO_WritePin(LED_PORT, LED_PIN, 1);
-  } else {
-    LEFT_TIM->BDTR |= TIM_BDTR_MOE;
-    //HAL_GPIO_WritePin(LED_PORT, LED_PIN, 0);
-  }
-
   if(ABS((adc_buffer.dcr - offsetdcr) * MOTOR_AMP_CONV_DC_AMP)  > DC_CUR_LIMIT || timeout > TIMEOUT || enable == 0) {
     RIGHT_TIM->BDTR &= ~TIM_BDTR_MOE;
   } else {
@@ -184,18 +176,9 @@ void DMA1_Channel1_IRQHandler() {
   int ur, vr, wr;
 
   //determine next position based on hall sensors
-  uint8_t hall_ul = !(LEFT_HALL_U_PORT->IDR & LEFT_HALL_U_PIN);
-  uint8_t hall_vl = !(LEFT_HALL_V_PORT->IDR & LEFT_HALL_V_PIN);
-  uint8_t hall_wl = !(LEFT_HALL_W_PORT->IDR & LEFT_HALL_W_PIN);
-
   uint8_t hall_ur = !(RIGHT_HALL_U_PORT->IDR & RIGHT_HALL_U_PIN);
   uint8_t hall_vr = !(RIGHT_HALL_V_PORT->IDR & RIGHT_HALL_V_PIN);
   uint8_t hall_wr = !(RIGHT_HALL_W_PORT->IDR & RIGHT_HALL_W_PIN);
-
-  uint8_t halll = hall_ul * 1 + hall_vl * 2 + hall_wl * 4;
-  posl          = hall_to_pos[halll];
-  posl += 2;
-  posl %= 6;
 
   uint8_t hallr = hall_ur * 1 + hall_vr * 2 + hall_wr * 4;
   posr          = hall_to_pos[hallr];
@@ -268,10 +251,6 @@ void DMA1_Channel1_IRQHandler() {
   ur += weakur;
   vr += weakvr;
   wr += weakwr;
-
-  LEFT_TIM->LEFT_TIM_U = CLAMP(ul + pwm_res / 2, 10, pwm_res-10);
-  LEFT_TIM->LEFT_TIM_V = CLAMP(vl + pwm_res / 2, 10, pwm_res-10);
-  LEFT_TIM->LEFT_TIM_W = CLAMP(wl + pwm_res / 2, 10, pwm_res-10);
 
   RIGHT_TIM->RIGHT_TIM_U = CLAMP(ur + pwm_res / 2, 10, pwm_res-10);
   RIGHT_TIM->RIGHT_TIM_V = CLAMP(vr + pwm_res / 2, 10, pwm_res-10);

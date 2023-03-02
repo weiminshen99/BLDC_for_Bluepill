@@ -1,5 +1,7 @@
 /*
-* This file is part of the hoverboard-firmware-hack project.
+* Copyright (C) 2022-2023 AARICO Corporation <weiminshen99@gmail.com> 
+*
+* This file is branched out and modified from the hoverboard-firmware-hack project.
 *
 * Copyright (C) 2017-2018 Rene Hopf <renehopf@mac.com>
 * Copyright (C) 2017-2018 Nico Stute <crinq@crinq.de>
@@ -27,18 +29,16 @@
 
 void SystemClock_Config(void);
 
-extern TIM_HandleTypeDef htim_left;
 extern TIM_HandleTypeDef htim_right;
 extern ADC_HandleTypeDef hadc1;
 extern ADC_HandleTypeDef hadc2;
 extern volatile adc_buf_t adc_buffer;
-//LCD_PCF8574_HandleTypeDef lcd;
 extern I2C_HandleTypeDef hi2c2;
 extern UART_HandleTypeDef huart2;
 
-int cmd1;  // normalized input values. -1000 to 1000
-int cmd2;
-int cmd3;
+// the followings are from bldc.c
+extern uint8_t enable;
+extern int pwm_res;
 
 typedef struct{
 	uint16_t start_of_frame;
@@ -51,8 +51,8 @@ volatile Serialcommand command;
 
 uint8_t button1, button2;
 
-int steer; // global variable for steering. -1000 to 1000
-int speed; // global variable for speed. -1000 to 1000
+//int steer; // global variable for steering. -1000 to 1000
+//int speed; // global variable for speed. -1000 to 1000
 
 extern volatile int pwml;  // global variable for pwm left. -1000 to 1000
 extern volatile int pwmr;  // global variable for pwm right. -1000 to 1000
@@ -79,28 +79,30 @@ extern volatile uint16_t ppm_captured_value[PPM_NUM_CHANNELS+1];
 
 int milli_vel_error_sum = 0;
 
-
-void poweroff() {
-    #ifndef CONTROL_MOTOR_TEST
-    if (abs(speed) < 20) {
-    #endif
-        buzzerPattern = 0;
-        enable = 0;
-        for (int i = 0; i < 8; i++) {
-            buzzerFreq = i;
-            HAL_Delay(100);
-        }
-        HAL_GPIO_WritePin(OFF_PORT, OFF_PIN, 0);
-        while(1) {}
-    #ifndef CONTROL_MOTOR_TEST
-    }
-    #endif
+void hall_to_PWM(int pwm, int hall_a, int hall_b, int hall_c, int *u, int *v, int *w) {
+  if (hall_a==1 && hall_b==0 && hall_c==0) {		// if hall is 100
+     *u = pwm;  *v = 0;     *w = -pwm;			// 	A -> C
+  } else if (hall_a==1 && hall_b==1 && hall_c==0) { 	// if hall is 110
+     *u = pwm;  *v = -pwm;  *w = 0;			// 	A -> B
+  } else if (hall_a==0 && hall_b==1 && hall_c==0) { 	// if hall is 010
+     *u = 0;  *v = -pwm;  *w = pwm;			// 	C -> B
+  } else if (hall_a==1 && hall_b==1 && hall_c==0) {	// if hall is 011
+     *u = -pwm;  *v = 0;  *w = pwm;			//	C -> A
+  } else if (hall_a==1 && hall_b==1 && hall_c==0) {	// if hall is 001
+     *u = -pwm;  *v = pwm;  *w = 0;			//	B -> A
+  } else if (hall_a==1 && hall_b==1 && hall_c==0) {	// if hall is 101
+     *u = 0;  *v = pwm;  *w = -pwm;			//	B -> C
+  } else {						// otherwise
+     *u = 0;  *v = 0;  *w = 0;				//	do nothing
+  }
 }
 
-
 int main(void) {
+
   HAL_Init();
   __HAL_RCC_AFIO_CLK_ENABLE();
+  __HAL_RCC_TIM1_CLK_ENABLE(); // this must be here for TIM1 PWM to work?
+
   HAL_NVIC_SetPriorityGrouping(NVIC_PRIORITYGROUP_4);
   /* System interrupt init*/
   /* MemoryManagement_IRQn interrupt configuration */
@@ -123,12 +125,10 @@ int main(void) {
   __HAL_RCC_DMA1_CLK_DISABLE();
   MX_GPIO_Init();
   MX_TIM_Init();
+
+/*
   MX_ADC1_Init();
   MX_ADC2_Init();
-
-  #if defined(DEBUG_SERIAL_USART2) || defined(DEBUG_SERIAL_USART3)
-    UART_Init();
-  #endif
 
   HAL_GPIO_WritePin(OFF_PORT, OFF_PIN, 1);
 
@@ -142,198 +142,55 @@ int main(void) {
   buzzerFreq = 0;
 
   HAL_GPIO_WritePin(LED_PORT, LED_PIN, 1);
+*/
 
-  int lastSpeedL = 0, lastSpeedR = 0;
-  int speedL = 0, speedR = 0;
-  float direction = 1;
+  int ur, vr, wr;
 
-  #ifdef CONTROL_PPM
-    PPM_Init();
-  #endif
-
-  #ifdef CONTROL_NUNCHUCK
-    I2C_Init();
-    Nunchuck_Init();
-  #endif
-
-  #ifdef CONTROL_SERIAL_USART2
-    UART_Control_Init();
-    HAL_UART_Receive_DMA(&huart2, (uint8_t *)&command, sizeof(command));
-  #endif
-
-  #ifdef DEBUG_I2C_LCD
-    I2C_Init();
-    HAL_Delay(50);
-    lcd.pcf8574.PCF_I2C_ADDRESS = 0x27;
-      lcd.pcf8574.PCF_I2C_TIMEOUT = 5;
-      lcd.pcf8574.i2c = hi2c2;
-      lcd.NUMBER_OF_LINES = NUMBER_OF_LINES_2;
-      lcd.type = TYPE0;
-
-      if(LCD_Init(&lcd)!=LCD_OK){
-          // error occured
-          //TODO while(1);
-      }
-
-    LCD_ClearDisplay(&lcd);
-    HAL_Delay(5);
-    LCD_SetLocation(&lcd, 0, 0);
-    LCD_WriteString(&lcd, "Hover V2.0");
-    LCD_SetLocation(&lcd, 0, 1);
-    LCD_WriteString(&lcd, "Initializing...");
-  #endif
-
-  float board_temp_adc_filtered = (float)adc_buffer.temp;
-  float board_temp_deg_c;
-
-  enable = 1;  // enable motors
+  enable = 1;  // enable motors, see bldc.c
 
   while(1) {
-    HAL_Delay(DELAY_IN_MAIN_LOOP); //delay in ms
 
-    #ifdef CONTROL_NUNCHUCK
-      Nunchuck_Read();
-      cmd1 = CLAMP((nunchuck_data[0] - 127) * 8, -1000, 1000); // x - axis. Nunchuck joystick readings range 30 - 230
-      cmd2 = CLAMP((nunchuck_data[1] - 128) * 8, -1000, 1000); // y - axis
+    pwmr = 1000;	// speed
 
-      button1 = (uint8_t)nunchuck_data[5] & 1;
-      button2 = (uint8_t)(nunchuck_data[5] >> 1) & 1;
-    #endif
+    // read hall sensors
+    uint8_t hall_ur = !(RIGHT_HALL_U_PORT->IDR & RIGHT_HALL_U_PIN);
+    uint8_t hall_vr = !(RIGHT_HALL_V_PORT->IDR & RIGHT_HALL_V_PIN);
+    uint8_t hall_wr = !(RIGHT_HALL_W_PORT->IDR & RIGHT_HALL_W_PIN);
 
-    #ifdef CONTROL_PPM
-      cmd1 = CLAMP((ppm_captured_value[0] - 500) * 2, -1000, 1000);
-      cmd2 = CLAMP((ppm_captured_value[1] - 500) * 2, -1000, 1000);
-      button1 = ppm_captured_value[5] > 500;
-      float scale = ppm_captured_value[2] / 1000.0f;
-    #endif
+    //hall_to_PWM(pwmr, hall_ur, hall_vr, hall_wr, &ur, &vr, &wr);
+    hall_to_PWM(pwmr, 1, 0, 0, &ur, &vr, &wr);
 
-    #ifdef CONTROL_ADC
-      // ADC values range: 0-4095, see ADC-calibration in config.h
-      cmd1 = CLAMP(adc_buffer.l_tx2 - ADC1_MIN, 0, ADC1_MAX) / (ADC1_MAX / 1000.0f);  // ADC1
-      cmd2 = CLAMP(adc_buffer.l_rx2 - ADC2_MIN, 0, ADC2_MAX) / (ADC2_MAX / 1000.0f);  // ADC2
+/*
+    RIGHT_TIM->RIGHT_TIM_U = CLAMP(ur + pwm_res/2, 10, pwm_res-10);
+    RIGHT_TIM->RIGHT_TIM_V = CLAMP(vr + pwm_res/2, 10, pwm_res-10);
+    RIGHT_TIM->RIGHT_TIM_W = CLAMP(wr + pwm_res/2, 10, pwm_res-10);
+*/
 
-      // use ADCs as button inputs:
-      button1 = (uint8_t)(adc_buffer.l_tx2 > 2000);  // ADC1
-      button2 = (uint8_t)(adc_buffer.l_rx2 > 2000);  // ADC2
-
-      timeout = 0;
-    #endif
-
-#ifdef CONTROL_SERIAL_USART2
-	  if (command.start_of_frame == START_FRAME && 
-			  command.checksum ==(uint16_t)(START_FRAME ^ command.steer ^ command.speed)) {
-		  cmd1 = CLAMP((int16_t)command.steer, -1000, 1000);
-		  cmd2 = CLAMP((int16_t)command.speed, -1000, 1000);
-	  } else {                                  // restart DMA to hopefully get back in sync
-		  // Try a periodic reset
-		  if (main_loop_counter % 25 == 0) {
-			  HAL_UART_DMAStop(&huart2);
-			  HAL_UART_Receive_DMA(&huart2, (uint8_t *)&command, sizeof(command));
-		  }
-	  }
-	  timeout = 0;
-#endif
-
-    #ifdef CONTROL_MOTOR_TEST
-      if (motor_test_direction == 1) cmd2 += 1;
-      else cmd2 -= 1;
-      if (abs(cmd2) > CONTROL_MOTOR_TEST_MAX_SPEED) motor_test_direction = -motor_test_direction;
-
-      timeout = 0;
-    #endif
-
-    // ####### LOW-PASS FILTER #######
-    steer = steer * (1.0 - FILTER) + cmd1 * FILTER;
-    speed = speed * (1.0 - FILTER) + cmd2 * FILTER;
-
-
-    // ####### MIXER #######
-    speedR = CLAMP(speed * SPEED_COEFFICIENT -  steer * STEER_COEFFICIENT, -1000, 1000);
-    speedL = CLAMP(speed * SPEED_COEFFICIENT +  steer * STEER_COEFFICIENT, -1000, 1000);
-
-
-    #ifdef ADDITIONAL_CODE
-      ADDITIONAL_CODE;
-    #endif
-
-
-    // ####### SET OUTPUTS #######
-    if ((speedL < lastSpeedL + 50 && speedL > lastSpeedL - 50) && (speedR < lastSpeedR + 50 && speedR > lastSpeedR - 50) && timeout < TIMEOUT) {
-    #ifdef INVERT_R_DIRECTION
-      pwmr = speedR;
-    #else
-      pwmr = -speedR;
-    #endif
-    #ifdef INVERT_L_DIRECTION
-      pwml = -speedL;
-    #else
-      pwml = speedL;
-    #endif
-    }
-
-    lastSpeedL = speedL;
-    lastSpeedR = speedR;
-
-
-    if (main_loop_counter % 25 == 0) {
-      // ####### CALC BOARD TEMPERATURE #######
-      board_temp_adc_filtered = board_temp_adc_filtered * 0.99 + (float)adc_buffer.temp * 0.01;
-      board_temp_deg_c = ((float)TEMP_CAL_HIGH_DEG_C - (float)TEMP_CAL_LOW_DEG_C) / ((float)TEMP_CAL_HIGH_ADC - (float)TEMP_CAL_LOW_ADC) * (board_temp_adc_filtered - (float)TEMP_CAL_LOW_ADC) + (float)TEMP_CAL_LOW_DEG_C;
-      
-      // ####### DEBUG SERIAL OUT #######
-      #ifdef CONTROL_ADC
-        setScopeChannel(0, (int)adc_buffer.l_tx2);  // 1: ADC1
-        setScopeChannel(1, (int)adc_buffer.l_rx2);  // 2: ADC2
-      #endif
-      setScopeChannel(2, (int)speedR);  // 3: output speed: 0-1000
-      setScopeChannel(3, (int)speedL);  // 4: output speed: 0-1000
-      setScopeChannel(4, (int)adc_buffer.batt1);  // 5: for battery voltage calibration
-      setScopeChannel(5, (int)(batteryVoltage * 100.0f));  // 6: for verifying battery voltage calibration
-      setScopeChannel(6, (int)board_temp_adc_filtered);  // 7: for board temperature calibration
-      setScopeChannel(7, (int)board_temp_deg_c);  // 8: for verifying board temperature calibration
-      consoleScope();
-    }
-
-
-    // ####### POWEROFF BY POWER-BUTTON #######
-    if (HAL_GPIO_ReadPin(BUTTON_PORT, BUTTON_PIN) && weakr == 0 && weakl == 0) {
-      enable = 0;
-      while (HAL_GPIO_ReadPin(BUTTON_PORT, BUTTON_PIN)) {}
-      poweroff();
-    }
-
-
-    // ####### BEEP AND EMERGENCY POWEROFF #######
-    if ((TEMP_POWEROFF_ENABLE && board_temp_deg_c >= TEMP_POWEROFF && abs(speed) < 20) || (batteryVoltage < ((float)BAT_LOW_DEAD * (float)BAT_NUMBER_OF_CELLS) && abs(speed) < 20)) {  // poweroff before mainboard burns OR low bat 3
-      poweroff();
-    } else if (TEMP_WARNING_ENABLE && board_temp_deg_c >= TEMP_WARNING) {  // beep if mainboard gets hot
-      buzzerFreq = 4;
-      buzzerPattern = 1;
-    } else if (batteryVoltage < ((float)BAT_LOW_LVL1 * (float)BAT_NUMBER_OF_CELLS) && batteryVoltage > ((float)BAT_LOW_LVL2 * (float)BAT_NUMBER_OF_CELLS) && BAT_LOW_LVL1_ENABLE) {  // low bat 1: slow beep
-      buzzerFreq = 5;
-      buzzerPattern = 42;
-    } else if (batteryVoltage < ((float)BAT_LOW_LVL2 * (float)BAT_NUMBER_OF_CELLS) && batteryVoltage > ((float)BAT_LOW_DEAD * (float)BAT_NUMBER_OF_CELLS) && BAT_LOW_LVL2_ENABLE) {  // low bat 2: fast beep
-      buzzerFreq = 5;
-      buzzerPattern = 6;
-    } else if (BEEPS_BACKWARD && speed < -50) {  // backward beep
-      buzzerFreq = 5;
-      buzzerPattern = 1;
-    } else {  // do not beep
-      buzzerFreq = 0;
-      buzzerPattern = 0;
-    }
-
-
-    // ####### INACTIVITY TIMEOUT #######
-    if (abs(speedL) > 50 || abs(speedR) > 50) {
-      inactivity_timeout_counter = 0;
+    if (ur != 0) {
+    	HAL_TIM_PWM_Start(&htim_right, TIM_CHANNEL_1);
+	RIGHT_TIM->RIGHT_TIM_U = CLAMP(1000+pwmr, 10, 2000);
     } else {
-      inactivity_timeout_counter ++;
+    	HAL_TIM_PWM_Stop(&htim_right, TIM_CHANNEL_1);
     }
-    if (inactivity_timeout_counter > (INACTIVITY_TIMEOUT * 60 * 1000) / (DELAY_IN_MAIN_LOOP + 1)) {  // rest of main loop needs maybe 1ms
-      poweroff();
+
+    if (vr != 0) {
+    	HAL_TIM_PWM_Start(&htim_right, TIM_CHANNEL_2);
+	RIGHT_TIM->RIGHT_TIM_V = CLAMP(1000+pwmr, 10, 2000);
+    } else {
+    	HAL_TIM_PWM_Stop(&htim_right, TIM_CHANNEL_2);
     }
-    
+
+    if (wr != 0) {
+    	HAL_TIM_PWM_Start(&htim_right, TIM_CHANNEL_3);
+	RIGHT_TIM->RIGHT_TIM_W = CLAMP(1000+pwmr, 10, 2000);
+    } else {
+    	HAL_TIM_PWM_Stop(&htim_right, TIM_CHANNEL_3);
+    }
+
+    HAL_Delay(10); // the 10ms duration for the current PWM state
+
+
+    HAL_GPIO_TogglePin(LED_PORT, LED_PIN);
     main_loop_counter += 1;
     timeout++;
   }
