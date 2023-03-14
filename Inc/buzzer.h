@@ -6,6 +6,6 @@
 TIM_HandleTypeDef htim2;
 
 void Buzzer_Init(void);
-void Buzzer_Test(void);
+void Buzzer_Start(void);
 
 

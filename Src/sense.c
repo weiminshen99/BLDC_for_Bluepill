@@ -1,13 +1,15 @@
 //
-//	ADC1 is init to be triggered by TIM1->CCR1 every 0.125 ms
+//	Sensor Values are read by ADC1, transered by DMA1_Channel1 to memory
+//	ADC1 is init to be triggered by TIM3 or TIM1, with period = 2000 (or 0.125 ms)
 //	The converted data is transfer to adc_buffer by DMA1_Channel1 upon completation
-//	The interrupt is handled by DMA1_Channel1_IRQHandler()
+//	The DMA interrupt is handled by DMA1_Channel1_IRQHandler()
 //
 
 #include "buzzer.h"
 #include "sense.h"
+#include "bldc.h"
 
-void Current_Sensors_Test(uint8_t trigger)
+void Sensors_Test(uint8_t trigger)
 {
     ADC1_Init();
     DMA1_Init();
@@ -27,11 +29,8 @@ void Current_Sensors_Test(uint8_t trigger)
     }
 }
 
-static void ADC1_Init(void)
+void ADC1_Init(void)
 {
-  ADC_MultiModeTypeDef multimode;
-  ADC_ChannelConfTypeDef sConfig;
-
   __HAL_RCC_ADC1_CLK_ENABLE();
 
   hadc1.Instance                   = ADC1;
@@ -42,17 +41,18 @@ static void ADC1_Init(void)
   //hadc1.Init.ExternalTrigConv      = ADC_EXTERNALTRIGCONV_T1_CC1; // to be triggered by TIM1->CCR1
   //hadc1.Init.ExternalTrigConv      = ADC_SOFTWARE_START;
   hadc1.Init.DataAlign             = ADC_DATAALIGN_RIGHT;
-  hadc1.Init.NbrOfConversion       = 1;
+  hadc1.Init.NbrOfConversion       = 5;
   HAL_ADC_Init(&hadc1);
 
   // Configure the ADC multi-mode
-
+  ADC_MultiModeTypeDef multimode;
   multimode.Mode = ADC_DUALMODE_REGSIMULT;
   HAL_ADCEx_MultiModeConfigChannel(&hadc1, &multimode);
 
+  ADC_ChannelConfTypeDef sConfig;
   sConfig.SamplingTime = ADC_SAMPLETIME_7CYCLES_5;
 
-  sConfig.Channel = ADC_CHANNEL_7;  // PA7
+  sConfig.Channel = ADC_CHANNEL_1;  // PA1
   sConfig.Rank    = 1;
   HAL_ADC_ConfigChannel(&hadc1, &sConfig);
 
@@ -98,14 +98,13 @@ static void ADC1_Init(void)
   GPIO_InitStruct.Mode  = GPIO_MODE_ANALOG;
   GPIO_InitStruct.Pull  = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-
   __HAL_RCC_GPIOA_CLK_ENABLE();
-  //GPIO_InitStruct.Pin = GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_3 | GPIO_PIN_4 | GPIO_PIN_5;
-  GPIO_InitStruct.Pin = GPIO_PIN_7;
+  GPIO_InitStruct.Pin = GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_3 | GPIO_PIN_4 | GPIO_PIN_5;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 }
 
-static void DMA1_Init(void)
+// ===========================================================
+void DMA1_Init(void)
 {
     __HAL_RCC_DMA1_CLK_ENABLE();
 
@@ -124,27 +123,26 @@ static void DMA1_Init(void)
 
     __HAL_DMA_ENABLE(&hdma_adc1);
 
-    HAL_DMA_Start_IT(&hdma_adc1, (uint32_t) &(ADC1->DR), (uint32_t) &(adc_buffer), 1);
+    HAL_DMA_Start_IT(&hdma_adc1, (uint32_t) &(ADC1->DR), (uint32_t) &(adc_buffer), 5);
 
     // enable interrupt of DMA1_Channel1
     HAL_NVIC_SetPriority(DMA1_Channel1_IRQn, 0, 0);
     HAL_NVIC_EnableIRQ(DMA1_Channel1_IRQn);
 }
 
-
+// ===========================================================
 void DMA1_Channel1_IRQHandler(void)
 {
     DMA1->IFCR = DMA_IFCR_CTCIF1; // clear flag
 
+    Trap_BLDC_Step();
     HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13); // show LED
-    //Trap_BLDC_Step();
 }
 
-//
-// This callback works if and when ADC1 is started by HAL_ADC_Start_IT(_)
-//
+// ===========================================================
 void ADC1_2_IRQHandler(void)
-{   // this interrupt indicates that ADC1 has completed conversion
+{   // This callback works if and when ADC1 is started by HAL_ADC_Start_IT(_)
+    // this interrupt indicates that ADC1 has completed conversion
     HAL_ADC_IRQHandler(&hadc1);
     __HAL_ADC_CLEAR_FLAG(&hadc1, ADC_FLAG_EOC); // clear this interrupt flag
 
@@ -153,31 +151,26 @@ void ADC1_2_IRQHandler(void)
 }
 
 
-//
-// This is to be used to trigger ADC1 automatically
-//
-static void TIM3_Init(void)
-{
-  __HAL_RCC_TIM3_CLK_ENABLE();
-
-  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
-  TIM_MasterConfigTypeDef sMasterConfig = {0};
+// =========================================================
+void TIM3_Init(void)
+{ // This is to be used to trigger ADC1 automatically
 
   htim3.Instance = TIM3;
   htim3.Init.Prescaler = 0;
   htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim3.Init.Period = 72000000;
+  htim3.Init.Period = 72000000; // also accessible via TIM3->ARR
   htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
-  //TIM3->ARR = 240000; // ARR: Auto reload register, determine how often to send trigger
+  if (HAL_TIM_Base_Init(&htim3) != HAL_OK) Error_Handler();
 
-  if (HAL_TIM_Base_Init(&htim3) != HAL_OK)
-        Error_Handler();
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
   sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
-  if (HAL_TIM_ConfigClockSource(&htim3, &sClockSourceConfig) != HAL_OK)
-        Error_Handler();
+  if (HAL_TIM_ConfigClockSource(&htim3, &sClockSourceConfig) != HAL_OK) Error_Handler();
+
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
   sMasterConfig.MasterOutputTrigger = TIM_TRGO_UPDATE;
   sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
-  if (HAL_TIMEx_MasterConfigSynchronization(&htim3, &sMasterConfig) != HAL_OK)
-        Error_Handler();
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim3, &sMasterConfig) != HAL_OK) Error_Handler();
+
+  __HAL_RCC_TIM3_CLK_ENABLE();
 }

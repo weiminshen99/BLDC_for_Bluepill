@@ -1,7 +1,7 @@
 
 #include "buzzer.h"
 
-void Buzzer_Test(void)
+void Buzzer_Start(void)
 {
     Buzzer_Init();
     TIM2->CCR1 = 2000; // sound volumn

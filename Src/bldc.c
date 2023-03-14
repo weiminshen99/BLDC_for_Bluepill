@@ -1,21 +1,14 @@
 
 #include "stm32f1xx_hal.h"
 #include "defines.h"
-#include "setup.h"
 #include "config.h"
+#include "bldc.h"
 
-
-volatile int posl = 0;
 volatile int posr = 0;
-volatile int pwml = 0;
 volatile int pwmr = 0;
-volatile int weakl = 0;
 volatile int weakr = 0;
 
 extern volatile int speed;
-
-extern volatile adc_buf_t adc_buffer;
-
 extern volatile uint32_t timeout;
 
 uint32_t buzzerFreq = 0;
@@ -124,16 +117,13 @@ inline void blockPhaseCurrent(int pos, int u, int v, int *q) {
 uint32_t buzzerTimer        = 0;
 
 int offsetcount = 0;
-int offsetrl1   = 2000;
-int offsetrl2   = 2000;
-int offsetrr1   = 2000;
-int offsetrr2   = 2000;
-int offsetdcl   = 2000;
-int offsetdcr   = 2000;
+int offset_Ia   = 2000;
+int offset_Ib   = 2000;
+int offset_Iout  = 2000;
 
 float batteryVoltage = BAT_NUMBER_OF_CELLS * 4.0;
 
-int curl = 0;
+int Ic = 0;
 // int errorl = 0;
 // int kp = 5;
 // volatile int cmdl = 0;
@@ -143,36 +133,29 @@ int timer = 0;
 const int max_time = PWM_FREQ / 10;
 volatile int vel = 0;
 
-//scan 8 channels with 2ADCs @ 20 clk cycles per sample
-//meaning ~80 ADC clock cycles @ 8MHz until new DMA interrupt =~ 100KHz
-//=640 cpu cycles
-void DMA1_Channel1_IRQHandler() {
-  DMA1->IFCR = DMA_IFCR_CTCIF1;
-  // HAL_GPIO_WritePin(LED_PORT, LED_PIN, 1);
+// ======================================================
+void Trap_BLDC_Step()
+{
 
   if(offsetcount < 1000) {  // calibrate ADC offsets
     offsetcount++;
-    offsetrl1 = (adc_buffer.rl1 + offsetrl1) / 2;
-    offsetrl2 = (adc_buffer.rl2 + offsetrl2) / 2;
-    offsetrr1 = (adc_buffer.rr1 + offsetrr1) / 2;
-    offsetrr2 = (adc_buffer.rr2 + offsetrr2) / 2;
-    offsetdcl = (adc_buffer.dcl + offsetdcl) / 2;
-    offsetdcr = (adc_buffer.dcr + offsetdcr) / 2;
+    offset_Ia =   (adc_buffer[0] + offset_Ia) / 2;
+    offset_Ib =   (adc_buffer[1] + offset_Ib) / 2;
+    offset_Iout = (adc_buffer[2] + offset_Iout) / 2;
     return;
   }
 
   if (buzzerTimer % 1000 == 0) {  // because you get float rounding errors if it would run every time
-    batteryVoltage = batteryVoltage * 0.99 + ((float)adc_buffer.batt1 * ((float)BAT_CALIB_REAL_VOLTAGE / (float)BAT_CALIB_ADC)) * 0.01;
+    batteryVoltage = batteryVoltage * 0.99 + ((float)adc_buffer[3] * ((float)BAT_CALIB_REAL_VOLTAGE / (float)BAT_CALIB_ADC)) * 0.01;
   }
 
   //disable PWM when current limit is reached (current chopping)
-  if(ABS((adc_buffer.dcr - offsetdcr) * MOTOR_AMP_CONV_DC_AMP)  > DC_CUR_LIMIT || timeout > TIMEOUT || enable == 0) {
+  if(ABS((adc_buffer[2] - offset_Iout) * MOTOR_AMP_CONV_DC_AMP)  > DC_CUR_LIMIT || timeout > TIMEOUT || enable == 0) {
     RIGHT_TIM->BDTR &= ~TIM_BDTR_MOE;
   } else {
     RIGHT_TIM->BDTR |= TIM_BDTR_MOE;
   }
 
-  int ul, vl, wl;
   int ur, vr, wr;
 
   //determine next position based on hall sensors
@@ -185,11 +168,10 @@ void DMA1_Channel1_IRQHandler() {
   posr += 2;
   posr %= 6;
 
-  blockPhaseCurrent(posl, adc_buffer.rl1 - offsetrl1, adc_buffer.rl2 - offsetrl2, &curl);
+  blockPhaseCurrent(posr, adc_buffer[0]-offset_Ia, adc_buffer[1]-offset_Ib, &Ic);
 
   //setScopeChannel(2, (adc_buffer.rl1 - offsetrl1) / 8);
   //setScopeChannel(3, (adc_buffer.rl2 - offsetrl2) / 8);
-
 
   // uint8_t buzz(uint16_t *notes, uint32_t len){
     // static uint32_t counter = 0;
@@ -197,18 +179,18 @@ void DMA1_Channel1_IRQHandler() {
     // if(len == 0){
         // return(0);
     // }
-    
+
     // struct {
         // uint16_t freq : 4;
         // uint16_t volume : 4;
         // uint16_t time : 8;
     // } note = notes[counter];
-    
+
     // if(timer / 500 == note.time){
         // timer = 0;
         // counter++;
     // }
-    
+
     // if(counter == len){
         // counter = 0;
     // }
@@ -219,28 +201,17 @@ void DMA1_Channel1_IRQHandler() {
 
 
   //create square wave for buzzer
-  buzzerTimer++;
+  /*buzzerTimer++;
   if (buzzerFreq != 0 && (buzzerTimer / 5000) % (buzzerPattern + 1) == 0) {
     if (buzzerTimer % buzzerFreq == 0) {
       HAL_GPIO_TogglePin(BUZZER_PORT, BUZZER_PIN);
     }
   } else {
       HAL_GPIO_WritePin(BUZZER_PORT, BUZZER_PIN, 0);
-  }
+  }*/
 
   //update PWM channels based on position
-  blockPWM(pwml, posl, &ul, &vl, &wl);
   blockPWM(pwmr, posr, &ur, &vr, &wr);
-
-  int weakul, weakvl, weakwl;
-  if (pwml > 0) {
-    blockPWM(weakl, (posl+5) % 6, &weakul, &weakvl, &weakwl);
-  } else {
-    blockPWM(-weakl, (posl+1) % 6, &weakul, &weakvl, &weakwl);
-  }
-  ul += weakul;
-  vl += weakvl;
-  wl += weakwl;
 
   int weakur, weakvr, weakwr;
   if (pwmr > 0) {
@@ -256,3 +227,74 @@ void DMA1_Channel1_IRQHandler() {
   RIGHT_TIM->RIGHT_TIM_V = CLAMP(vr + pwm_res / 2, 10, pwm_res-10);
   RIGHT_TIM->RIGHT_TIM_W = CLAMP(wr + pwm_res / 2, 10, pwm_res-10);
 }
+
+// ===============================================================
+void TIM1_Init(void)
+{
+  __HAL_RCC_TIM1_CLK_ENABLE();
+
+  htim1.Instance               = TIM1;
+  htim1.Init.Period            = 64000000 / 2 / 16000; // = 2000 = 0.125 ms, (also can be set at TIM1->ARR)
+  htim1.Init.Prescaler         = 0;
+  htim1.Init.CounterMode       = TIM_COUNTERMODE_CENTERALIGNED1;
+  htim1.Init.ClockDivision     = TIM_CLOCKDIVISION_DIV1;
+  htim1.Init.RepetitionCounter = 0;
+  htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
+  if (HAL_TIM_Base_Init(&htim1) == HAL_ERROR) Error_Handler();
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  HAL_TIM_ConfigClockSource(&htim1, &sClockSourceConfig);
+  if (HAL_TIM_PWM_Init(&htim1)!=HAL_OK) Error_Handler();
+
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_UPDATE; // To trigger ADC1
+  sMasterConfig.MasterSlaveMode     = TIM_MASTERSLAVEMODE_DISABLE;
+  HAL_TIMEx_MasterConfigSynchronization(&htim1, &sMasterConfig);
+
+  TIM_OC_InitTypeDef sConfigOC = {0};
+  sConfigOC.OCMode       = TIM_OCMODE_PWM1;
+  sConfigOC.Pulse        = 0;
+  sConfigOC.OCPolarity   = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCNPolarity  = TIM_OCNPOLARITY_HIGH; // TIM_OCNPOLARITY_LOW;
+  sConfigOC.OCFastMode   = TIM_OCFAST_DISABLE;
+  sConfigOC.OCIdleState  = TIM_OCIDLESTATE_RESET;
+  sConfigOC.OCNIdleState = TIM_OCNIDLESTATE_SET;
+  HAL_TIM_PWM_ConfigChannel(&htim1, &sConfigOC, TIM_CHANNEL_1);
+  HAL_TIM_PWM_ConfigChannel(&htim1, &sConfigOC, TIM_CHANNEL_2);
+  HAL_TIM_PWM_ConfigChannel(&htim1, &sConfigOC, TIM_CHANNEL_3);
+  TIM_BreakDeadTimeConfigTypeDef sBreakDeadTimeConfig = {0};
+  sBreakDeadTimeConfig.OffStateRunMode  = TIM_OSSR_ENABLE;
+  sBreakDeadTimeConfig.OffStateIDLEMode = TIM_OSSI_ENABLE;
+  sBreakDeadTimeConfig.LockLevel        = TIM_LOCKLEVEL_OFF;
+  sBreakDeadTimeConfig.DeadTime         = DEAD_TIME;
+  sBreakDeadTimeConfig.BreakState       = TIM_BREAK_DISABLE;
+  sBreakDeadTimeConfig.BreakPolarity    = TIM_BREAKPOLARITY_LOW;
+  sBreakDeadTimeConfig.AutomaticOutput  = TIM_AUTOMATICOUTPUT_ENABLE;
+  HAL_TIMEx_ConfigBreakDeadTime(&htim1, &sBreakDeadTimeConfig);
+
+  // Enable all three channels for PWM output
+  HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
+  HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_2);
+  HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_3);
+  // Enable all three complemenary channels for PWM output
+  HAL_TIMEx_PWMN_Start(&htim1, TIM_CHANNEL_1);
+  HAL_TIMEx_PWMN_Start(&htim1, TIM_CHANNEL_2);
+  HAL_TIMEx_PWMN_Start(&htim1, TIM_CHANNEL_3);
+
+  // Now we init GPIO Pins for TIM1
+  GPIO_InitTypeDef GPIO_InitStruct = {0};
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+
+  __HAL_RCC_GPIOA_CLK_ENABLE();
+  GPIO_InitStruct.Pin = GPIO_PIN_8 | GPIO_PIN_9 | GPIO_PIN_10;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+  __HAL_RCC_GPIOB_CLK_ENABLE();
+  GPIO_InitStruct.Pin = GPIO_PIN_13 | GPIO_PIN_14 | GPIO_PIN_15;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+  __HAL_TIM_ENABLE(&htim1);
+}
+

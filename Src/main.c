@@ -26,33 +26,33 @@
 #include "sysinit.h"
 #include "buzzer.h"
 #include "sense.h"
+#include "bldc.h"
+
+volatile uint32_t timeout = 0;
 
 int main(void)
 {
+  uint32_t main_loop_counter = 0;
+
   HAL_Init();
   NVIC_Init();
   SystemClock_Config();
 
   LED_Init();
-  Buzzer_Init();
-//  SENSORS_Init();
 
-  Buzzer_Test();
-
-  uint32_t main_loop_counter = 0;
+  Buzzer_Start();
 
   while(1)
   {
 
-	Current_Sensors_Test(1); // new data is in adc_buffer
-
-	TIM2->CCR1 = adc_buffer[0];
-	//TIM2->CCR1 = 1000 - main_loop_counter%1000; // change buzzer volume
+	Sensors_Test(1); // new data is in adc_buffer
+	TIM2->CCR1 = adc_buffer[1]; // use the new data to control buzzer volume
 
 	//HAL_Delay(100);
 	//HAL_GPIO_TogglePin(LED_PORT, LED_PIN);
 
     	main_loop_counter += 1;
+	timeout++;
   }
 }
 

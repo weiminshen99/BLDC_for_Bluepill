@@ -39,9 +39,9 @@ Src/system_stm32f1xx.c \
 Src/sysinit.c \
 Src/buzzer.c \
 Src/sense.c \
+Src/bldc.c \
 Src/main.c \
 #Src/stm32f1xx_it.c \
-#Src/bldc.c \
 #Src/adc1.c
 #Src/setup.c \
 #Src/control.c \
