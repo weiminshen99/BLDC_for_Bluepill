@@ -1,7 +1,7 @@
 ######################################
 # target
 ######################################
-TARGET = hover
+TARGET = test
 
 ######################################
 # building variables
@@ -19,28 +19,32 @@ BUILD_DIR = build
 ######################################
 # C sources
 C_SOURCES =  \
+Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal.c \
+Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_cortex.c \
 Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_flash.c \
+Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_flash_ex.c \
 Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_pwr.c \
 Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_rcc.c \
+Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_rcc_ex.c \
 Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_tim.c \
 Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_tim_ex.c \
 Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_gpio_ex.c \
-Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_adc_ex.c \
-Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_cortex.c \
-Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_flash_ex.c \
 Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_gpio.c \
-Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_rcc_ex.c \
-Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal.c \
 Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_adc.c \
+Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_adc_ex.c \
 Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_uart.c \
 Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_i2c.c \
 Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_dma.c \
 Src/system_stm32f1xx.c \
-Src/setup.c \
-Src/control.c \
+Src/sysinit.c \
+Src/buzzer.c \
+Src/sense.c \
 Src/main.c \
-Src/bldc.c \
-Src/stm32f1xx_it.c
+#Src/stm32f1xx_it.c \
+#Src/bldc.c \
+#Src/adc1.c
+#Src/setup.c \
+#Src/control.c \
 #Src/BLDC_controller_data.c \
 #Src/BLDC_controller.c
 #Src/comms.c \
@@ -51,7 +55,7 @@ Src/stm32f1xx_it.c
 
 # ASM sources
 ASM_SOURCES =  \
-startup_stm32f103xb.s
+Src/startup_stm32f103xb.s
 #startup_stm32f103xe.s
 
 #######################################
@@ -131,7 +135,7 @@ endif
 #######################################
 # link script
 #LDSCRIPT = STM32F103RCTx_FLASH.ld
-LDSCRIPT = STM32F103C8Tx_FLASH.ld
+LDSCRIPT = Src/STM32F103C8Tx_FLASH.ld
 
 # libraries
 LIBS = -lc -lm -lnosys

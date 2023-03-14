@@ -1,7 +1,7 @@
 /*
-* Copyright (C) 2022-2023 AARICO Corporation <weiminshen99@gmail.com> 
+* Copyright (C) 2022-2023 AARICO Corporation <weiminshen99@gmail.com>
 *
-* This file is branched out and modified from the hoverboard-firmware-hack project.
+* This file is modified from a branch of hoverboard-firmware-hack project.
 *
 * Copyright (C) 2017-2018 Rene Hopf <renehopf@mac.com>
 * Copyright (C) 2017-2018 Nico Stute <crinq@crinq.de>
@@ -21,35 +21,46 @@
 * along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "stm32f1xx_hal.h"
 #include "defines.h"
-#include "setup.h"
 #include "config.h"
-//#include "hd44780.h"
+#include "sysinit.h"
+#include "buzzer.h"
+#include "sense.h"
 
-void SystemClock_Config(void);
+int main(void)
+{
+  HAL_Init();
+  NVIC_Init();
+  SystemClock_Config();
 
-extern TIM_HandleTypeDef htim_right;
-extern ADC_HandleTypeDef hadc1;
-extern ADC_HandleTypeDef hadc2;
-extern volatile adc_buf_t adc_buffer;
-extern I2C_HandleTypeDef hi2c2;
-extern UART_HandleTypeDef huart2;
+  LED_Init();
+  Buzzer_Init();
+//  SENSORS_Init();
 
+  Buzzer_Test();
+
+  uint32_t main_loop_counter = 0;
+
+  while(1)
+  {
+
+	Current_Sensors_Test(1); // new data is in adc_buffer
+
+	TIM2->CCR1 = adc_buffer[0];
+	//TIM2->CCR1 = 1000 - main_loop_counter%1000; // change buzzer volume
+
+	//HAL_Delay(100);
+	//HAL_GPIO_TogglePin(LED_PORT, LED_PIN);
+
+    	main_loop_counter += 1;
+  }
+}
+
+
+/*
 // the followings are from bldc.c
 extern uint8_t enable;
 extern int pwm_res;
-
-typedef struct{
-	uint16_t start_of_frame;
-	int16_t  steer;
-	int16_t  speed;
-	uint16_t checksum;
-} Serialcommand;
-
-volatile Serialcommand command;
-
-uint8_t button1, button2;
 
 //int steer; // global variable for steering. -1000 to 1000
 //int speed; // global variable for speed. -1000 to 1000
@@ -68,7 +79,6 @@ extern volatile uint32_t timeout; // global variable for timeout
 extern float batteryVoltage; // global variable for battery voltage
 
 uint32_t inactivity_timeout_counter;
-uint32_t main_loop_counter = 0;
 
 int32_t motor_test_direction = 1;
 
@@ -115,35 +125,10 @@ void hall_to_PWM(int pwm, int hall_a, int hall_b, int hall_c, int *u, int *v, in
   }
 }
 
-int main(void) {
-
-  HAL_Init();
-  __HAL_RCC_AFIO_CLK_ENABLE();
-
-  HAL_NVIC_SetPriorityGrouping(NVIC_PRIORITYGROUP_4);
-  /* System interrupt init*/
-  /* MemoryManagement_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(MemoryManagement_IRQn, 0, 0);
-  /* BusFault_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(BusFault_IRQn, 0, 0);
-  /* UsageFault_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(UsageFault_IRQn, 0, 0);
-  /* SVCall_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(SVCall_IRQn, 0, 0);
-  /* DebugMonitor_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DebugMonitor_IRQn, 0, 0);
-  /* PendSV_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(PendSV_IRQn, 0, 0);
-  /* SysTick_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(SysTick_IRQn, 0, 0);
-
-  SystemClock_Config();
-
   __HAL_RCC_DMA1_CLK_DISABLE();
   MX_GPIO_Init();
   MX_TIM_Init();
 
-  /*
   MX_ADC1_Init();
   MX_ADC2_Init();
 
@@ -159,14 +144,13 @@ int main(void) {
   buzzerFreq = 0;
 
   HAL_GPIO_WritePin(LED_PORT, LED_PIN, 1);
-  */
 
   int ur, vr, wr;
   uint8_t hall_ur, hall_vr, hall_wr;
 
   enable = 1;  // enable motors, see bldc.c
 
-  while(1) {
+  while(0) {
 
     pwmr = 900;	// speed
 
@@ -181,11 +165,11 @@ int main(void) {
 
     hall_to_PWM(pwmr, hall_ur, hall_vr, hall_wr, &ur, &vr, &wr);
 
-    /*
+    
     RIGHT_TIM->RIGHT_TIM_U = CLAMP(ur + pwm_res/2, 10, pwm_res-10);
     RIGHT_TIM->RIGHT_TIM_V = CLAMP(vr + pwm_res/2, 10, pwm_res-10);
     RIGHT_TIM->RIGHT_TIM_W = CLAMP(wr + pwm_res/2, 10, pwm_res-10);
-    */
+    
 
     if (ur != 0) {
     	HAL_TIM_PWM_Start(&htim_right, TIM_CHANNEL_1);
@@ -217,7 +201,6 @@ int main(void) {
     HAL_Delay(20); // the 10ms duration for the current PWM state
 
 
-    main_loop_counter += 1;
     timeout++;
 
     if (main_loop_counter % 100 == 0) {
@@ -225,46 +208,4 @@ int main(void) {
     }
   }
 }
-
-/** System Clock Configuration
 */
-void SystemClock_Config(void) {
-  RCC_OscInitTypeDef RCC_OscInitStruct;
-  RCC_ClkInitTypeDef RCC_ClkInitStruct;
-  RCC_PeriphCLKInitTypeDef PeriphClkInit;
-
-  /**Initializes the CPU, AHB and APB busses clocks
-    */
-  RCC_OscInitStruct.OscillatorType      = RCC_OSCILLATORTYPE_HSI;
-  RCC_OscInitStruct.HSIState            = RCC_HSI_ON;
-  RCC_OscInitStruct.HSICalibrationValue = 16;
-  RCC_OscInitStruct.PLL.PLLState        = RCC_PLL_ON;
-  RCC_OscInitStruct.PLL.PLLSource       = RCC_PLLSOURCE_HSI_DIV2;
-  RCC_OscInitStruct.PLL.PLLMUL          = RCC_PLL_MUL16;
-  HAL_RCC_OscConfig(&RCC_OscInitStruct);
-
-  /**Initializes the CPU, AHB and APB busses clocks
-    */
-  RCC_ClkInitStruct.ClockType      = RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_SYSCLK | RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2;
-  RCC_ClkInitStruct.SYSCLKSource   = RCC_SYSCLKSOURCE_PLLCLK;
-  RCC_ClkInitStruct.AHBCLKDivider  = RCC_SYSCLK_DIV1;
-  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
-  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
-
-  HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2);
-
-  PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_ADC;
-  PeriphClkInit.AdcClockSelection    = RCC_ADCPCLK2_DIV8;  // 8 MHz
-  HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit);
-
-  /**Configure the Systick interrupt time
-    */
-  HAL_SYSTICK_Config(HAL_RCC_GetHCLKFreq() / 1000);
-
-  /**Configure the Systick
-    */
-  HAL_SYSTICK_CLKSourceConfig(SYSTICK_CLKSOURCE_HCLK);
-
-  /* SysTick_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(SysTick_IRQn, 0, 0);
-}
