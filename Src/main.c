@@ -28,34 +28,37 @@
 #include "sense.h"
 #include "bldc.h"
 
+void TIM1_Init(void);
+
 volatile uint32_t timeout = 0;
 
 int main(void)
 {
-  uint32_t main_loop_counter = 0;
-
   HAL_Init();
-  NVIC_Init();
   SystemClock_Config();
+  NVIC_Init();
+
+  Sensors_Start(1);
 
   LED_Init();
 
   Buzzer_Start();
 
-  while(1)
+  Motor_Timer_Start();
+
+  while (1)
   {
+	Buzzer_Volume_Set(adc_buffer[0]);
 
-	Sensors_Test(1); // new data is in adc_buffer
-	TIM2->CCR1 = adc_buffer[1]; // use the new data to control buzzer volume
+	//Trap_BLDC_Step(1); // testing
 
-	//HAL_Delay(100);
+	HAL_Delay(1);
 	//HAL_GPIO_TogglePin(LED_PORT, LED_PIN);
 
-    	main_loop_counter += 1;
+    	//main_loop_counter += 1;
 	timeout++;
   }
 }
-
 
 /*
 // the followings are from bldc.c
@@ -204,7 +207,7 @@ void hall_to_PWM(int pwm, int hall_a, int hall_b, int hall_c, int *u, int *v, in
     timeout++;
 
     if (main_loop_counter % 100 == 0) {
-	HAL_GPIO_TogglePin(LED_PORT, LED_PIN);
+	//HAL_GPIO_TogglePin(LED_PORT, LED_PIN);
     }
   }
 }

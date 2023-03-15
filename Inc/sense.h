@@ -16,5 +16,5 @@ void TIM3_Init(void);
 void ADC1_2_IRQHandler(void);
 void DMA1_Channel1_IRQHandler(void);
 
-void Sensors_Test(uint8_t trigger);
+void Sensors_Start(uint8_t trigger);
 

@@ -3,18 +3,19 @@
 
 void Buzzer_Start(void)
 {
-    Buzzer_Init();
-    TIM2->CCR1 = 2000; // sound volumn
+    Buzzer_Timer_Init();
     HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1);   // you can listen or see led on this channel
+    TIM2->CCR1 = 2000; // initial volume of sound
 }
 
-void Buzzer_Init(void)
+void Buzzer_Volume_Set(uint32_t v)
+{
+    TIM2->CCR1 = v;
+}
+
+void Buzzer_Timer_Init(void)
 {
   __HAL_RCC_TIM2_CLK_ENABLE();
-
-  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
-  TIM_MasterConfigTypeDef sMasterConfig = {0};
-  TIM_OC_InitTypeDef sConfigOC = {0};
 
   htim2.Instance = TIM2;
   htim2.Init.Prescaler = 0;
@@ -25,6 +26,8 @@ void Buzzer_Init(void)
   if (HAL_TIM_Base_Init(&htim2) != HAL_OK) {
     Error_Handler();
   }
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
   sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
   if (HAL_TIM_ConfigClockSource(&htim2, &sClockSourceConfig) != HAL_OK) {
     Error_Handler();
@@ -32,18 +35,20 @@ void Buzzer_Init(void)
   if (HAL_TIM_PWM_Init(&htim2) != HAL_OK) {
     Error_Handler();
   }
+
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
   sMasterConfig.MasterOutputTrigger = TIM_TRGO_UPDATE;	// Use T2_CC1 to trigger ADC1
   sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
-  if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK)
-  {
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK) {
     Error_Handler();
   }
+
+  TIM_OC_InitTypeDef sConfigOC = {0};
   sConfigOC.OCMode = TIM_OCMODE_PWM1;
   sConfigOC.Pulse = 0;
   sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
   sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
-  if (HAL_TIM_PWM_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
-  {
+  if (HAL_TIM_PWM_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_1) != HAL_OK) {
     Error_Handler();
   }
 

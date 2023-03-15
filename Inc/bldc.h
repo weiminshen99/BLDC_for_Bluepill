@@ -3,6 +3,6 @@
 
 TIM_HandleTypeDef htim1;
 
-void TIM1_Init();
-void Trap_BLDC_Step(void);
+void Motor_Timer_Start();
+void Trap_BLDC_Step(uint8_t fake_hall_pos);
 

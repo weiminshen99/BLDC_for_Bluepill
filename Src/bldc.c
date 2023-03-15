@@ -5,7 +5,7 @@
 #include "bldc.h"
 
 volatile int posr = 0;
-volatile int pwmr = 0;
+volatile int pwmr = 500;
 volatile int weakr = 0;
 
 extern volatile int speed;
@@ -134,7 +134,7 @@ const int max_time = PWM_FREQ / 10;
 volatile int vel = 0;
 
 // ======================================================
-void Trap_BLDC_Step()
+void Trap_BLDC_Step(uint8_t simulated_hall_pos)
 {
 
   if(offsetcount < 1000) {  // calibrate ADC offsets
@@ -164,7 +164,10 @@ void Trap_BLDC_Step()
   uint8_t hall_wr = !(RIGHT_HALL_W_PORT->IDR & RIGHT_HALL_W_PIN);
 
   uint8_t hallr = hall_ur * 1 + hall_vr * 2 + hall_wr * 4;
-  posr          = hall_to_pos[hallr];
+
+  hallr = simulated_hall_pos; // for testing
+
+  posr = hall_to_pos[hallr];
   posr += 2;
   posr %= 6;
 
@@ -229,7 +232,7 @@ void Trap_BLDC_Step()
 }
 
 // ===============================================================
-void TIM1_Init(void)
+void Motor_Timer_Start(void)
 {
   __HAL_RCC_TIM1_CLK_ENABLE();
 
@@ -296,5 +299,9 @@ void TIM1_Init(void)
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   __HAL_TIM_ENABLE(&htim1);
+
+  TIM1->CCR1 = 1000;	// must do this to start running PWM
+  TIM1->CCR2 = 1000;
+  TIM1->CCR3 = 1000;
 }
 

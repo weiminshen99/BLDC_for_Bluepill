@@ -9,25 +9,29 @@
 #include "sense.h"
 #include "bldc.h"
 
-void Sensors_Test(uint8_t trigger)
+void Sensors_Start(uint8_t trigger)
 {
     ADC1_Init();
     DMA1_Init();
 
-    if (trigger==0) // Method-1: software_start; Poll data from ADC by yourself
-    {
-        HAL_ADC_Start(&hadc1);
-        HAL_ADC_PollForConversion(&hadc1, 1);
-        adc_buffer[0] = HAL_ADC_GetValue(&hadc1);
-    } else { // Default: triggered by TIM1 or TIM3
+    if (trigger==1) {
+	Motor_Timer_Start();	// TIM1 (T1_CC1) will trigger ADC1
+	TIM1->CCR1 = 1000;	// to start TIM1 PWM1
+    } else if (trigger==2) {
+        Buzzer_Start();		// TIM2 (T2_CC1) will trigger ADC1
+	TIM2->CCR1 = 1000;	// to start TIM2 PWM1
+    } else if (trigger==3) {
         TIM3_Init();
-        HAL_TIM_Base_Start(&htim3); // TIM3 trigger ADC1
-        //TIM1_Init_w_GPIO();
-        //TIM1->ARR = 2000; // the period to trigger ADC1, 2000 = 0.125 ms
-        //HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1);
-        //TIM1->CCR1 = 50; // to trigger ADC1, TIM1->CCR1 must have some activities
+        HAL_TIM_Base_Start(&htim3); // TIM3 (T3_TRGO) will trigger ADC1
+    } else {
+	Motor_Timer_Start();	// default: TIM1 trigger ADC1
+	TIM1->CCR1 = 1000;	// to start TIM1 PWM1
     }
+
+    HAL_ADC_Start(&hadc1);
+    HAL_ADCEx_Calibration_Start(&hadc1);
 }
+
 
 void ADC1_Init(void)
 {
@@ -37,41 +41,41 @@ void ADC1_Init(void)
   hadc1.Init.ScanConvMode          = ADC_SCAN_ENABLE;
   hadc1.Init.ContinuousConvMode    = DISABLE;
   hadc1.Init.DiscontinuousConvMode = DISABLE;
-  hadc1.Init.ExternalTrigConv      = ADC_EXTERNALTRIGCONV_T3_TRGO; // to be triggered by TIM3
-  //hadc1.Init.ExternalTrigConv      = ADC_EXTERNALTRIGCONV_T1_CC1; // to be triggered by TIM1->CCR1
+  //hadc1.Init.ExternalTrigConv      = ADC_EXTERNALTRIGCONV_T3_TRGO; // to be triggered by TIM3
+  hadc1.Init.ExternalTrigConv      = ADC_EXTERNALTRIGCONV_T1_CC1; // to be triggered by TIM1->CCR1
   //hadc1.Init.ExternalTrigConv      = ADC_SOFTWARE_START;
   hadc1.Init.DataAlign             = ADC_DATAALIGN_RIGHT;
-  hadc1.Init.NbrOfConversion       = 5;
+  hadc1.Init.NbrOfConversion       = 1;
   HAL_ADC_Init(&hadc1);
 
   // Configure the ADC multi-mode
-  ADC_MultiModeTypeDef multimode;
+/*  ADC_MultiModeTypeDef multimode;
   multimode.Mode = ADC_DUALMODE_REGSIMULT;
   HAL_ADCEx_MultiModeConfigChannel(&hadc1, &multimode);
-
+*/
   ADC_ChannelConfTypeDef sConfig;
   sConfig.SamplingTime = ADC_SAMPLETIME_7CYCLES_5;
 
-  sConfig.Channel = ADC_CHANNEL_1;  // PA1
-  sConfig.Rank    = 1;
+  sConfig.Channel = ADC_CHANNEL_7;  // PA7
+  sConfig.Rank    = ADC_REGULAR_RANK_1;
   HAL_ADC_ConfigChannel(&hadc1, &sConfig);
 
   sConfig.Channel = ADC_CHANNEL_2;  // PA2
-  sConfig.Rank    = 2;
+  sConfig.Rank    = ADC_REGULAR_RANK_2;
   HAL_ADC_ConfigChannel(&hadc1, &sConfig);
 
-  sConfig.SamplingTime = ADC_SAMPLETIME_13CYCLES_5;
+  //sConfig.SamplingTime = ADC_SAMPLETIME_13CYCLES_5;
 
   sConfig.Channel = ADC_CHANNEL_3;  // PA3
-  sConfig.Rank    = 3;
+  sConfig.Rank    = ADC_REGULAR_RANK_3;
   HAL_ADC_ConfigChannel(&hadc1, &sConfig);
 
   sConfig.Channel = ADC_CHANNEL_4;  // PA4
-  sConfig.Rank    = 4;
+  sConfig.Rank    = ADC_REGULAR_RANK_4;
   HAL_ADC_ConfigChannel(&hadc1, &sConfig);
 
   sConfig.Channel = ADC_CHANNEL_5;  // PA5
-  sConfig.Rank    = 5;
+  sConfig.Rank    = ADC_REGULAR_RANK_5;
   HAL_ADC_ConfigChannel(&hadc1, &sConfig);
 
   //temperature requires at least 17.1uS sampling time
@@ -99,7 +103,8 @@ void ADC1_Init(void)
   GPIO_InitStruct.Pull  = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   __HAL_RCC_GPIOA_CLK_ENABLE();
-  GPIO_InitStruct.Pin = GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_3 | GPIO_PIN_4 | GPIO_PIN_5;
+  //GPIO_InitStruct.Pin = GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_3 | GPIO_PIN_4 | GPIO_PIN_5;
+  GPIO_InitStruct.Pin = GPIO_PIN_7;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 }
 
@@ -123,7 +128,7 @@ void DMA1_Init(void)
 
     __HAL_DMA_ENABLE(&hdma_adc1);
 
-    HAL_DMA_Start_IT(&hdma_adc1, (uint32_t) &(ADC1->DR), (uint32_t) &(adc_buffer), 5);
+    HAL_DMA_Start_IT(&hdma_adc1, (uint32_t) &(ADC1->DR), (uint32_t) &(adc_buffer), 1);
 
     // enable interrupt of DMA1_Channel1
     HAL_NVIC_SetPriority(DMA1_Channel1_IRQn, 0, 0);
@@ -135,7 +140,7 @@ void DMA1_Channel1_IRQHandler(void)
 {
     DMA1->IFCR = DMA_IFCR_CTCIF1; // clear flag
 
-    Trap_BLDC_Step();
+    //Trap_BLDC_Step();
     HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13); // show LED
 }
 
@@ -147,7 +152,7 @@ void ADC1_2_IRQHandler(void)
     __HAL_ADC_CLEAR_FLAG(&hadc1, ADC_FLAG_EOC); // clear this interrupt flag
 
     adc_buffer[0] = HAL_ADC_GetValue(&hadc1);	// get data from ADC1 to AD_RES
-    HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);     // show led here
+    //HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);     // show led here
 }
 
 
@@ -158,7 +163,7 @@ void TIM3_Init(void)
   htim3.Instance = TIM3;
   htim3.Init.Prescaler = 0;
   htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim3.Init.Period = 72000000; // also accessible via TIM3->ARR
+  htim3.Init.Period = 2000; // also accessible via TIM3->ARR
   htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
   if (HAL_TIM_Base_Init(&htim3) != HAL_OK) Error_Handler();
