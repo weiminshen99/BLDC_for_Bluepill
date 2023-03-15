@@ -9,25 +9,33 @@
 #include "sense.h"
 #include "bldc.h"
 
-void Sensors_Start(uint8_t trigger)
+void Sensors_Trigger_Start(uint8_t trigger)
 {
     ADC1_Init();
     DMA1_Init();
 
     if (trigger==1) {
-	Motor_Timer_Start();	// TIM1 (T1_CC1) will trigger ADC1
-	TIM1->CCR1 = 1000;	// to start TIM1 PWM1
+  	ADC1->CR2 &= ~ADC_CR2_EXTSEL; // set ADC1's ExternalTriggerSource = 000 (i.e., T1_CC1)
+	Motor_Timer_Start();	// start TIM1 to trigger ADC1
+	//TIM1->CCR1 = 1000;	// make sure TIM1 PWM1 is active to trigger ADC1
     } else if (trigger==2) {
-        Buzzer_Start();		// TIM2 (T2_CC1) will trigger ADC1
-	TIM2->CCR1 = 1000;	// to start TIM2 PWM1
+  	ADC1->CR2 &= ~ADC_CR2_EXTSEL_2; // external trigger source = 011 (i.e., T2_CC2)
+  	ADC1->CR2 |= ADC_CR2_EXTSEL_1; // external trigger source = 011 (i.e., T2_CC2)
+  	ADC1->CR2 |= ADC_CR2_EXTSEL_0; // external trigger source = 011 (i.e., T2_CC2)
+        Buzzer_Start();		// start TIM2 to trigger ADC1
     } else if (trigger==3) {
+  	ADC1->CR2 != ADC_CR2_EXTSEL_2; // external trigger source = 100 (i.e., T3_TRGO)
+  	ADC1->CR2 &= ~ADC_CR2_EXTSEL_1; // external trigger source = 100 (i.e., T3_TRGO)
+  	ADC1->CR2 &= ~ADC_CR2_EXTSEL_0; // external trigger source = 100 (i.e., T3_TRGO)
         TIM3_Init();
         HAL_TIM_Base_Start(&htim3); // TIM3 (T3_TRGO) will trigger ADC1
     } else {
-	Motor_Timer_Start();	// default: TIM1 trigger ADC1
-	TIM1->CCR1 = 1000;	// to start TIM1 PWM1
+  	ADC1->CR2 &= ~ADC_CR2_EXTSEL; // set ExternalTriggerSource = 000 (i.e., T1_CC1)
+	Motor_Timer_Start();	// default: start TIM1 to trigger ADC1
+	//TIM1->CCR1 = 1000;	// make sure TIM1 PWM1 is active to trigger ADC1
     }
 
+    // now start ADC1
     HAL_ADC_Start(&hadc1);
     HAL_ADCEx_Calibration_Start(&hadc1);
 }

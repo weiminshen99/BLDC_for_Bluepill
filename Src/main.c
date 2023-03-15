@@ -35,15 +35,13 @@ volatile uint32_t timeout = 0;
 int main(void)
 {
   HAL_Init();
-  SystemClock_Config();
   NVIC_Init();
-
-  Sensors_Start(1);
+  SystemClock_Config();
 
   LED_Init();
 
   Buzzer_Start();
-
+  Sensors_Trigger_Start(1);
   Motor_Timer_Start();
 
   while (1)

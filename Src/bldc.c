@@ -300,8 +300,6 @@ void Motor_Timer_Start(void)
 
   __HAL_TIM_ENABLE(&htim1);
 
-  TIM1->CCR1 = 1000;	// must do this to start running PWM
-  TIM1->CCR2 = 1000;
-  TIM1->CCR3 = 1000;
+  TIM1->CCR1 = 1000;	// make sure PWM1 is active to trigger ADC1
 }
 
