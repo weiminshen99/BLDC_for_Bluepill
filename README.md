@@ -6,7 +6,7 @@ Here are some simple but key ideas for BLDC motor control:
 When reading Hall sensors: Ha, Hb, Hc, they indicates 6 "H_positions"
 
 	_Hc_Hb_Ha	H_pos
-	
+	=======================	
 	001		H1
 	010		H2
   	011		H3
@@ -32,7 +32,7 @@ A BLDC motor has three phases: Ia, Ib, Ic, arranged as follows:
 The configuration can have the six actions if we assume for beginers that current flows from one phase to another:
 
 	Motor Actions by Current Flow
-	
+	=============================
 	Ia->Ib
 	Ia->Ic
 	Ib->Ic
