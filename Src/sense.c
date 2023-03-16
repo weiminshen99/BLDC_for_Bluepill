@@ -9,15 +9,38 @@
 #include "sense.h"
 #include "bldc.h"
 
+void Motor_and_Sensors_Start()
+{
+    ADC1_Init();
+    DMA1_Init();
+    HALL_Init();
+    Motor_Timer_Start();
+    TIM1->CCR1 = 1000;	// TIM1 PWM1 must be active to trigger ADC1
+    HAL_ADC_Start(&hadc1);
+    HAL_ADCEx_Calibration_Start(&hadc1);
+}
+
+void HALL_Init(void)
+{
+    GPIO_InitTypeDef GPIO_InitStruct;
+    GPIO_InitStruct.Mode  = GPIO_MODE_INPUT;
+    GPIO_InitStruct.Pull  = GPIO_NOPULL;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+    __HAL_RCC_GPIOB_CLK_ENABLE();
+    GPIO_InitStruct.Pin = RIGHT_HALL_U_PIN | RIGHT_HALL_V_PIN | RIGHT_HALL_W_PIN;
+    HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+}
+
 void Sensors_Trigger_Start(uint8_t trigger)
 {
     ADC1_Init();
     DMA1_Init();
+    HALL_Init();
 
     if (trigger==1) {
-  	ADC1->CR2 &= ~ADC_CR2_EXTSEL; // set ADC1's ExternalTriggerSource = 000 (i.e., T1_CC1)
+  	//ADC1->CR2 &= ~ADC_CR2_EXTSEL; // set ADC1's ExternalTriggerSource = 000 (i.e., T1_CC1)
 	Motor_Timer_Start();	// start TIM1 to trigger ADC1
-	//TIM1->CCR1 = 1000;	// make sure TIM1 PWM1 is active to trigger ADC1
+	TIM1->CCR1 = 1000;	// make sure TIM1 PWM1 is active to trigger ADC1
     } else if (trigger==2) {
   	ADC1->CR2 &= ~ADC_CR2_EXTSEL_2; // external trigger source = 011 (i.e., T2_CC2)
   	ADC1->CR2 |= ADC_CR2_EXTSEL_1; // external trigger source = 011 (i.e., T2_CC2)
@@ -32,7 +55,7 @@ void Sensors_Trigger_Start(uint8_t trigger)
     } else {
   	ADC1->CR2 &= ~ADC_CR2_EXTSEL; // set ExternalTriggerSource = 000 (i.e., T1_CC1)
 	Motor_Timer_Start();	// default: start TIM1 to trigger ADC1
-	//TIM1->CCR1 = 1000;	// make sure TIM1 PWM1 is active to trigger ADC1
+	TIM1->CCR1 = 1000;	// make sure TIM1 PWM1 is active to trigger ADC1
     }
 
     // now start ADC1
@@ -143,13 +166,17 @@ void DMA1_Init(void)
     HAL_NVIC_EnableIRQ(DMA1_Channel1_IRQn);
 }
 
-// ===========================================================
+// =============================================================
+// IMPORTANT:
+// THIS IS WHERE ADC1_DMA1 completes and calls the MOTOR to act
+//
 void DMA1_Channel1_IRQHandler(void)
 {
     DMA1->IFCR = DMA_IFCR_CTCIF1; // clear flag
 
-    //Trap_BLDC_Step();
-    HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13); // show LED
+    //Trap_BLDC_Step(-1); // not working here
+
+    //HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13); // show LED
 }
 
 // ===========================================================

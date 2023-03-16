@@ -12,9 +12,11 @@ volatile uint32_t adc_buffer[5];
 void ADC1_Init(void);
 void DMA1_Init(void);
 void TIM3_Init(void);
+void HALL_Init(void);
 
 void ADC1_2_IRQHandler(void);
 void DMA1_Channel1_IRQHandler(void);
 
 void Sensors_Trigger_Start(uint8_t trigger);
+void Motor_and_Sensors_Start();
 

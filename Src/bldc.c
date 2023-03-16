@@ -5,7 +5,7 @@
 #include "bldc.h"
 
 volatile int posr = 0;
-volatile int pwmr = 500;
+volatile int pwmr = 100;
 volatile int weakr = 0;
 
 extern volatile int speed;
@@ -151,21 +151,30 @@ void Trap_BLDC_Step(uint8_t simulated_hall_pos)
 
   //disable PWM when current limit is reached (current chopping)
   if(ABS((adc_buffer[2] - offset_Iout) * MOTOR_AMP_CONV_DC_AMP)  > DC_CUR_LIMIT || timeout > TIMEOUT || enable == 0) {
-    RIGHT_TIM->BDTR &= ~TIM_BDTR_MOE;
+    MOTOR_TIM->BDTR &= ~TIM_BDTR_MOE;
   } else {
-    RIGHT_TIM->BDTR |= TIM_BDTR_MOE;
+    MOTOR_TIM->BDTR |= TIM_BDTR_MOE;
   }
 
   int ur, vr, wr;
 
   //determine next position based on hall sensors
-  uint8_t hall_ur = !(RIGHT_HALL_U_PORT->IDR & RIGHT_HALL_U_PIN);
-  uint8_t hall_vr = !(RIGHT_HALL_V_PORT->IDR & RIGHT_HALL_V_PIN);
-  uint8_t hall_wr = !(RIGHT_HALL_W_PORT->IDR & RIGHT_HALL_W_PIN);
+  // WHY WHY Negation ??????
+  //uint8_t hall_ur = !(RIGHT_HALL_U_PORT->IDR & RIGHT_HALL_U_PIN);
+  //uint8_t hall_vr = !(RIGHT_HALL_V_PORT->IDR & RIGHT_HALL_V_PIN);
+  //uint8_t hall_wr = !(RIGHT_HALL_W_PORT->IDR & RIGHT_HALL_W_PIN);
+
+  uint8_t hall_ur = HAL_GPIO_ReadPin(GPIOB, RIGHT_HALL_U_PIN);
+  uint8_t hall_vr = HAL_GPIO_ReadPin(GPIOB, RIGHT_HALL_V_PIN);
+  uint8_t hall_wr = HAL_GPIO_ReadPin(GPIOB, RIGHT_HALL_W_PIN);
 
   uint8_t hallr = hall_ur * 1 + hall_vr * 2 + hall_wr * 4;
 
-  hallr = simulated_hall_pos; // for testing
+  // ==========================================
+  if (simulated_hall_pos>=0 && simulated_hall_pos<=6) {
+  hallr = simulated_hall_pos; // for simulation
+  }
+  // ==========================================
 
   posr = hall_to_pos[hallr];
   posr += 2;
@@ -225,10 +234,38 @@ void Trap_BLDC_Step(uint8_t simulated_hall_pos)
   ur += weakur;
   vr += weakvr;
   wr += weakwr;
+/*
+  MOTOR_TIM->MOTOR_TIM_U = CLAMP(ur + pwm_res/2, 10, pwm_res-10);
+  MOTOR_TIM->MOTOR_TIM_V = CLAMP(vr + pwm_res/2, 10, pwm_res-10);
+  MOTOR_TIM->MOTOR_TIM_W = CLAMP(wr + pwm_res/2, 10, pwm_res-10);
+*/
+    if (ur != 0) {
+        HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
+        HAL_TIMEx_PWMN_Start(&htim1, TIM_CHANNEL_1);
+        MOTOR_TIM->MOTOR_TIM_U = CLAMP(1000+ur, 10, 1990);
+    } else {
+        HAL_TIM_PWM_Stop(&htim1, TIM_CHANNEL_1);
+        HAL_TIMEx_PWMN_Stop(&htim1, TIM_CHANNEL_1);
+    }
 
-  RIGHT_TIM->RIGHT_TIM_U = CLAMP(ur + pwm_res / 2, 10, pwm_res-10);
-  RIGHT_TIM->RIGHT_TIM_V = CLAMP(vr + pwm_res / 2, 10, pwm_res-10);
-  RIGHT_TIM->RIGHT_TIM_W = CLAMP(wr + pwm_res / 2, 10, pwm_res-10);
+    if (vr != 0) {
+        HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_2);
+        HAL_TIMEx_PWMN_Start(&htim1, TIM_CHANNEL_2);
+        MOTOR_TIM->MOTOR_TIM_V = CLAMP(1000+vr, 10, 1990);
+    } else {
+        HAL_TIM_PWM_Stop(&htim1, TIM_CHANNEL_2);
+        HAL_TIMEx_PWMN_Stop(&htim1, TIM_CHANNEL_2);
+    }
+
+   if (wr != 0) {
+        HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_3);
+        HAL_TIMEx_PWMN_Start(&htim1, TIM_CHANNEL_3);
+        MOTOR_TIM->MOTOR_TIM_W = CLAMP(1000+wr, 10, 1990);
+    } else {
+        HAL_TIM_PWM_Stop(&htim1, TIM_CHANNEL_3);
+        HAL_TIMEx_PWMN_Stop(&htim1, TIM_CHANNEL_3);
+    }
+
 }
 
 // ===============================================================
@@ -300,6 +337,6 @@ void Motor_Timer_Start(void)
 
   __HAL_TIM_ENABLE(&htim1);
 
-  TIM1->CCR1 = 1000;	// make sure PWM1 is active to trigger ADC1
+  //TIM1->CCR1 = 1000;	// make sure PWM1 is active to trigger ADC1
 }
 
