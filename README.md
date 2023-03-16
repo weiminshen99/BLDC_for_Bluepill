@@ -1,4 +1,4 @@
-# bldc_for_bluepill
+# BLDC_for_Bluepill
 New BLDC adopted to use Makefile and run on Bluepill.
 
 Here are some simple but key ideas for BLDC motor control:
