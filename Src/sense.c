@@ -1,35 +1,16 @@
 //
-//	Sensor Values are read by ADC1, transered by DMA1_Channel1 to memory
-//	ADC1 is init to be triggered by TIM3 or TIM1, with period = 2000 (or 0.125 ms)
+//	Copyright (C) AAARI Corporation, 2022-2023, <weiminshen99@gmail.com>
+//
+//	Sensor Values are read by ADC1, transered by DMA1_Channel1 to memory adc_buffer
+//	ADC1 is init to be triggered by TIM3 with period = 2000 (or 0.125 ms)
 //	The converted data is transfer to adc_buffer by DMA1_Channel1 upon completation
 //	The DMA interrupt is handled by DMA1_Channel1_IRQHandler()
 //
 
-#include "buzzer.h"
+#include "defines.h"
 #include "sense.h"
 #include "bldc.h"
-
-void Motor_and_Sensors_Start()
-{
-    ADC1_Init();
-    DMA1_Init();
-    HALL_Init();
-    Motor_Timer_Start();
-    TIM1->CCR1 = 1000;	// TIM1 PWM1 must be active to trigger ADC1
-    HAL_ADC_Start(&hadc1);
-    HAL_ADCEx_Calibration_Start(&hadc1);
-}
-
-void HALL_Init(void)
-{
-    GPIO_InitTypeDef GPIO_InitStruct;
-    GPIO_InitStruct.Mode  = GPIO_MODE_INPUT;
-    GPIO_InitStruct.Pull  = GPIO_NOPULL;
-    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-    __HAL_RCC_GPIOB_CLK_ENABLE();
-    GPIO_InitStruct.Pin = RIGHT_HALL_U_PIN | RIGHT_HALL_V_PIN | RIGHT_HALL_W_PIN;
-    HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
-}
+#include "buzzer.h"
 
 void Sensors_Trigger_Start(uint8_t trigger)
 {
@@ -38,32 +19,150 @@ void Sensors_Trigger_Start(uint8_t trigger)
     HALL_Init();
 
     if (trigger==1) {
-  	//ADC1->CR2 &= ~ADC_CR2_EXTSEL; // set ADC1's ExternalTriggerSource = 000 (i.e., T1_CC1)
-	Motor_Timer_Start();	// start TIM1 to trigger ADC1
-	TIM1->CCR1 = 1000;	// make sure TIM1 PWM1 is active to trigger ADC1
+  	ADC1->CR2 &= ~ADC_CR2_EXTSEL; // set ExternalTriggerSource = 000 (i.e., T1_CC1)
+	Motor_Timer_Start();	// default: start TIM1 to trigger ADC1
+	// WARNING: ADC1 will stop if TIM1_PWM1 becomes inactivity sometimes, Caution
+	TIM1->CCR1 = 1000;	// make sure initially TIM1 PWM1 is active to trigger ADC1
     } else if (trigger==2) {
   	ADC1->CR2 &= ~ADC_CR2_EXTSEL_2; // external trigger source = 011 (i.e., T2_CC2)
   	ADC1->CR2 |= ADC_CR2_EXTSEL_1; // external trigger source = 011 (i.e., T2_CC2)
   	ADC1->CR2 |= ADC_CR2_EXTSEL_0; // external trigger source = 011 (i.e., T2_CC2)
         Buzzer_Start();		// start TIM2 to trigger ADC1
-    } else if (trigger==3) {
+    } else { // defalt is TIM3
   	//ADC1->CR2 != ADC_CR2_EXTSEL_2; // external trigger source = 100 (i.e., T3_TRGO)
   	//ADC1->CR2 &= ~ADC_CR2_EXTSEL_1; // external trigger source = 100 (i.e., T3_TRGO)
   	//ADC1->CR2 &= ~ADC_CR2_EXTSEL_0; // external trigger source = 100 (i.e., T3_TRGO)
         TIM3_Init();
         HAL_TIM_Base_Start(&htim3); // TIM3 (T3_TRGO) will trigger ADC1
-    } else {
-  	ADC1->CR2 &= ~ADC_CR2_EXTSEL; // set ExternalTriggerSource = 000 (i.e., T1_CC1)
-	Motor_Timer_Start();	// default: start TIM1 to trigger ADC1
-	TIM1->CCR1 = 1000;	// make sure TIM1 PWM1 is active to trigger ADC1
     }
 
-    // now start ADC1
+    // now that trigger is runing, we can start ADC1 and it will run automatically
     HAL_ADC_Start(&hadc1);
     HAL_ADCEx_Calibration_Start(&hadc1);
 }
 
+// =============================================================
+void DMA1_Channel1_IRQHandler(void)
+{
+    DMA1->IFCR = DMA_IFCR_CTCIF1; // clear flag
+    //HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13); // show LED
 
+    Emergency_Shut_Down();
+
+    State.POS_now = HALL_Sense();
+
+    Process_Raw_Sensor_Data();
+
+    State.Status = READY;
+}
+
+// ==============================================================
+void Emergency_Shut_Down(void)
+{
+
+}
+
+
+// ============================================================
+//
+// Assume Ia+Ib+Ic=0; you can compute q if you know the other two
+//
+inline int blockPhaseCurrent(int pos, int u, int v)
+{
+  switch(pos) {
+    case 0: return(u-v);// u=0, v=pwm, w=-pwm
+    case 1: return(u); 	// *u = -pwm; // *v = pwm; // *w = 0;
+    case 2: return(u); 	// *u = -pwm; // *v = 0; // *w = pwm;
+    case 3: return(v); 	// *u = 0;   // *v = -pwm; // *w = pwm;
+    case 4: return(v); 	// *u = pwm; // *v = -pwm; // *w = 0;
+    case 5: return(-(u-v));  // *u = pwm;  // *v = 0;  // *w = -pwm;
+    default: return(0); // *u = 0;   // *v = 0;   // *w = 0;
+   }
+}
+
+
+const uint8_t hall_to_pos[8] = {
+    0,
+    0,
+    2,
+    1,
+    4,
+    5,
+    3,
+    0,
+};
+
+// ==========================================================================
+void Process_Raw_Sensor_Data()
+{
+    if (State.SensorCalibCounter > 0) {  // calibrate ADC offsets
+      State.SensorCalibCounter--;
+      State.Ia = (adc_buffer[0] + State.Ia) / 2;
+      State.Ib = (adc_buffer[1] + State.Ib) / 2;
+      State.Status = DONE; // continue calabooration
+      return;
+    }
+
+    //disable PWM when current limit is reached (current chopping)
+    //if (ABS((adc_buffer[2] - offset_Iout) * MOTOR_AMP_CONV_DC_AMP)  > DC_CUR_LIMIT ) {
+    //if (timeout > TIMEOUT || motor_enable == 0) {
+    //   MOTOR_TIM->BDTR &= ~TIM_BDTR_MOE;
+    // } else {
+    //   MOTOR_TIM->BDTR |= TIM_BDTR_MOE;
+    // }
+
+    //setScopeChannel(2, (adc_buffer.rl1 - offsetrl1) / 8);
+    //setScopeChannel(3, (adc_buffer.rl2 - offsetrl2) / 8);
+
+    //uint32_t buzzerTimer = 0;
+
+    //float batteryVoltage = BAT_NUMBER_OF_CELLS * 4.0;
+
+    //if (buzzerTimer % 1000 == 0) {  // because you get float rounding errors if it would run every time
+    //  batteryVoltage = batteryVoltage * 0.99 + ((float)adc_buffer[3] * ((float)BAT_CALIB_REAL_VOLTAGE / (float)BAT_CALIB_ADC)) * 0.01;
+    //}
+
+    // update State: Ia Ib Ic
+    int index = (hall_to_pos[State.POS_now]+2)%6;
+
+    State.Ia = (State.Ia + adc_buffer[0])/2;
+    State.Ib = (State.Ib + adc_buffer[1])/2;
+    State.Ic = blockPhaseCurrent(index, State.Ia, State.Ib);
+
+    State.Status = READY;
+}
+
+
+// ==========================================================================
+void HALL_Init(void)
+{
+    GPIO_InitTypeDef GPIO_InitStruct;
+    GPIO_InitStruct.Mode  = GPIO_MODE_INPUT;
+    GPIO_InitStruct.Pull  = GPIO_NOPULL;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+    __HAL_RCC_GPIOB_CLK_ENABLE();
+    GPIO_InitStruct.Pin = HALL_U_PIN | HALL_V_PIN | HALL_W_PIN;
+    HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+}
+
+// ==========================================================================
+int HALL_Sense(void)
+{
+  //determine next position based on hall sensors // WHY WHY Negation ??????
+  //uint8_t hall_ur = !(HALL_U_PORT->IDR & HALL_U_PIN);
+  //uint8_t hall_vr = !(HALL_V_PORT->IDR & HALL_V_PIN);
+  //uint8_t hall_wr = !(HALL_W_PORT->IDR & HALL_W_PIN);
+
+  uint8_t hall_a = HAL_GPIO_ReadPin(HALL_U_PORT, HALL_U_PIN);
+  uint8_t hall_b = HAL_GPIO_ReadPin(HALL_V_PORT, HALL_V_PIN);
+  uint8_t hall_c = HAL_GPIO_ReadPin(HALL_W_PORT, HALL_W_PIN);
+
+  uint8_t hall_pos = hall_a * 1 + hall_b * 2 + hall_c * 4;
+
+  return(hall_pos);
+}
+
+// ==========================================================================
 void ADC1_Init(void)
 {
   __HAL_RCC_ADC1_CLK_ENABLE();
@@ -164,19 +263,6 @@ void DMA1_Init(void)
     // enable interrupt of DMA1_Channel1
     HAL_NVIC_SetPriority(DMA1_Channel1_IRQn, 0, 0);
     HAL_NVIC_EnableIRQ(DMA1_Channel1_IRQn);
-}
-
-// =============================================================
-// IMPORTANT:
-// THIS IS WHERE ADC1_DMA1 completes and calls the MOTOR to act
-//
-void DMA1_Channel1_IRQHandler(void)
-{
-    DMA1->IFCR = DMA_IFCR_CTCIF1; // clear flag
-
-    Trap_BLDC_Step(-1); // not working here
-
-    //HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13); // show LED
 }
 
 // ===========================================================

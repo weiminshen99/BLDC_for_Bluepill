@@ -1,6 +1,7 @@
 /*
-* This file is part of the hoverboard-firmware-hack project.
+* This file is part of the Bare_FOC project.
 *
+* Copyright (C) 2021-2023 AARI Corp, Wei-Min Shen <weiminshen99@gmail.com>>
 * Copyright (C) 2017-2018 Rene Hopf <renehopf@mac.com>
 * Copyright (C) 2017-2018 Nico Stute <crinq@crinq.de>
 * Copyright (C) 2017-2018 Niklas Fauth <niklas.fauth@kit.fail>
@@ -22,12 +23,23 @@
 #pragma once
 #include "stm32f1xx_hal.h"
 
-#define RIGHT_HALL_U_PIN GPIO_PIN_6
-#define RIGHT_HALL_U_PORT GPIOB
-#define RIGHT_HALL_V_PIN GPIO_PIN_7
-#define RIGHT_HALL_V_PORT GPIOB
-#define RIGHT_HALL_W_PIN GPIO_PIN_8
-#define RIGHT_HALL_W_PORT GPIOB
+typedef struct {
+  uint16_t Ia;
+  uint16_t Ib;
+  uint16_t Ic;
+  uint16_t POS_now;
+  uint16_t POS_desired;
+  uint16_t PWM_desired;
+  uint16_t SensorCalibCounter;
+  uint8_t  Status;
+} State_t;
+
+#define HALL_U_PIN GPIO_PIN_6
+#define HALL_U_PORT GPIOB
+#define HALL_V_PIN GPIO_PIN_7
+#define HALL_V_PORT GPIOB
+#define HALL_W_PIN GPIO_PIN_8
+#define HALL_W_PORT GPIOB
 
 #define MOTOR_TIM TIM1
 #define MOTOR_TIM_U CCR1
@@ -46,17 +58,17 @@
 #define MOTOR_TIM_WL_PIN GPIO_PIN_15
 #define MOTOR_TIM_WL_PORT GPIOB
 
-// #define RIGHT_DC_CUR_ADC ADC2
-// #define RIGHT_U_CUR_ADC ADC2
-// #define RIGHT_V_CUR_ADC ADC2
+// #define DC_CUR_ADC ADC2
+// #define U_CUR_ADC ADC2
+// #define V_CUR_ADC ADC2
 
-#define RIGHT_DC_CUR_PIN GPIO_PIN_1
-#define RIGHT_U_CUR_PIN GPIO_PIN_2
-#define RIGHT_V_CUR_PIN GPIO_PIN_3
+#define DC_CUR_PIN GPIO_PIN_1
+#define U_CUR_PIN GPIO_PIN_2
+#define V_CUR_PIN GPIO_PIN_3
 
-#define RIGHT_DC_CUR_PORT GPIOA
-#define RIGHT_U_CUR_PORT GPIOA
-#define RIGHT_V_CUR_PORT GPIOA
+#define DC_CUR_PORT GPIOA
+#define U_CUR_PORT GPIOA
+#define V_CUR_PORT GPIOA
 
 // #define DCLINK_ADC ADC3
 // #define DCLINK_CHANNEL
@@ -84,6 +96,9 @@
 #define CHARGER_PIN GPIO_PIN_12
 #define CHARGER_PORT GPIOA
 */
+
+#define PWM_RES 64000000 / 2 / PWM_FREQ // = 2000
+
 #define DELAY_TIM_FREQUENCY_US 1000000
 
 #define MOTOR_AMP_CONV_DC_AMP 0.02  // A per bit (12) on ADC.
@@ -94,6 +109,8 @@
 
 #define NO 0
 #define YES 1
+#define DONE 0
+#define READY 1
 #define ABS(a) (((a) < 0.0) ? -(a) : (a))
 #define LIMIT(x, lowhigh) (((x) > (lowhigh)) ? (lowhigh) : (((x) < (-lowhigh)) ? (-lowhigh) : (x)))
 #define SAT(x, lowhigh) (((x) > (lowhigh)) ? (1.0) : (((x) < (-lowhigh)) ? (-1.0) : (0.0)))

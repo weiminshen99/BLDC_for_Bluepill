@@ -2,33 +2,10 @@
 #include "stm32f1xx_hal.h"
 #include "defines.h"
 #include "config.h"
+#include "sysinit.h"
 #include "bldc.h"
 
-volatile int posr = 0;
-volatile int pwmr = 100;
-volatile int weakr = 0;
-
-extern volatile int speed;
-extern volatile uint32_t timeout;
-
-uint32_t buzzerFreq = 0;
-uint32_t buzzerPattern = 0;
-
-uint8_t enable = 0;
-
-const int pwm_res = 64000000 / 2 / PWM_FREQ; // = 2000
-
-const uint8_t hall_to_pos[8] = {
-    0,
-    0,
-    2,
-    1,
-    4,
-    5,
-    3,
-    0,
-};
-
+// ================================================================
 inline void blockPWM(int pwm, int pos, int *u, int *v, int *w) {
   switch(pos) {
     case 0:
@@ -68,122 +45,34 @@ inline void blockPWM(int pwm, int pos, int *u, int *v, int *w) {
   }
 }
 
-inline void blockPhaseCurrent(int pos, int u, int v, int *q) {
-  switch(pos) {
-    case 0:
-      *q = u - v;
-      // *u = 0;
-      // *v = pwm;
-      // *w = -pwm;
-      break;
-    case 1:
-      *q = u;
-      // *u = -pwm;
-      // *v = pwm;
-      // *w = 0;
-      break;
-    case 2:
-      *q = u;
-      // *u = -pwm;
-      // *v = 0;
-      // *w = pwm;
-      break;
-    case 3:
-      *q = v;
-      // *u = 0;
-      // *v = -pwm;
-      // *w = pwm;
-      break;
-    case 4:
-      *q = v;
-      // *u = pwm;
-      // *v = -pwm;
-      // *w = 0;
-      break;
-    case 5:
-      *q = -(u - v);
-      // *u = pwm;
-      // *v = 0;
-      // *w = -pwm;
-      break;
-    default:
-      *q = 0;
-      // *u = 0;
-      // *v = 0;
-      // *w = 0;
-  }
-}
-
-uint32_t buzzerTimer        = 0;
-
-int offsetcount = 0;
-int offset_Ia   = 2000;
-int offset_Ib   = 2000;
-int offset_Iout  = 2000;
-
-float batteryVoltage = BAT_NUMBER_OF_CELLS * 4.0;
-
-int Ic = 0;
-// int errorl = 0;
-// int kp = 5;
-// volatile int cmdl = 0;
-
-int last_pos = 0;
-int timer = 0;
-const int max_time = PWM_FREQ / 10;
-volatile int vel = 0;
-
 // ======================================================
 void Trap_BLDC_Step(uint8_t simulated_hall_pos)
 {
 
-  if(offsetcount < 1000) {  // calibrate ADC offsets
-    offsetcount++;
-    offset_Ia =   (adc_buffer[0] + offset_Ia) / 2;
-    offset_Ib =   (adc_buffer[1] + offset_Ib) / 2;
-    offset_Iout = (adc_buffer[2] + offset_Iout) / 2;
-    return;
-  }
+//  int last_pos = 0;
+//  int timer = 0;
+//  const int max_time = PWM_FREQ / 10;
+//  volatile int vel = 0;
 
-  if (buzzerTimer % 1000 == 0) {  // because you get float rounding errors if it would run every time
-    batteryVoltage = batteryVoltage * 0.99 + ((float)adc_buffer[3] * ((float)BAT_CALIB_REAL_VOLTAGE / (float)BAT_CALIB_ADC)) * 0.01;
-  }
+//  uint32_t buzzerFreq = 0;
+//  uint32_t buzzerPattern = 0;
 
-  //disable PWM when current limit is reached (current chopping)
-  if(ABS((adc_buffer[2] - offset_Iout) * MOTOR_AMP_CONV_DC_AMP)  > DC_CUR_LIMIT || timeout > TIMEOUT || enable == 0) {
-    MOTOR_TIM->BDTR &= ~TIM_BDTR_MOE;
-  } else {
-    MOTOR_TIM->BDTR |= TIM_BDTR_MOE;
-  }
+  if (State.Status != READY) return;
 
   int ur, vr, wr;
+  volatile int posr = 0;
+  volatile int weakr = 0;
+  volatile int pwmr = 0;
 
-  //determine next position based on hall sensors
-  // WHY WHY Negation ??????
-  //uint8_t hall_ur = !(RIGHT_HALL_U_PORT->IDR & RIGHT_HALL_U_PIN);
-  //uint8_t hall_vr = !(RIGHT_HALL_V_PORT->IDR & RIGHT_HALL_V_PIN);
-  //uint8_t hall_wr = !(RIGHT_HALL_W_PORT->IDR & RIGHT_HALL_W_PIN);
+  pwmr = State.PWM_desired;
 
-  uint8_t hall_ur = HAL_GPIO_ReadPin(GPIOB, RIGHT_HALL_U_PIN);
-  uint8_t hall_vr = HAL_GPIO_ReadPin(GPIOB, RIGHT_HALL_V_PIN);
-  uint8_t hall_wr = HAL_GPIO_ReadPin(GPIOB, RIGHT_HALL_W_PIN);
-
-  uint8_t hallr = hall_ur * 1 + hall_vr * 2 + hall_wr * 4;
-
-  // ==========================================
+  // for simulation
   if (simulated_hall_pos>=0 && simulated_hall_pos<=6) {
-  hallr = simulated_hall_pos; // for simulation
+	posr = simulated_hall_pos;
+  } else {
+	posr = (hall_to_pos[State.POS_now] + 2) %6;
   }
-  // ==========================================
 
-  posr = hall_to_pos[hallr];
-  posr += 2;
-  posr %= 6;
-
-  blockPhaseCurrent(posr, adc_buffer[0]-offset_Ia, adc_buffer[1]-offset_Ib, &Ic);
-
-  //setScopeChannel(2, (adc_buffer.rl1 - offsetrl1) / 8);
-  //setScopeChannel(3, (adc_buffer.rl2 - offsetrl2) / 8);
 
   // uint8_t buzz(uint16_t *notes, uint32_t len){
     // static uint32_t counter = 0;
@@ -226,46 +115,44 @@ void Trap_BLDC_Step(uint8_t simulated_hall_pos)
   blockPWM(pwmr, posr, &ur, &vr, &wr);
 
   int weakur, weakvr, weakwr;
-  if (pwmr > 0) {
+  if (pwmr > 0) {	// forward
     blockPWM(weakr, (posr+5) % 6, &weakur, &weakvr, &weakwr);
-  } else {
+  } else {		// backword
     blockPWM(-weakr, (posr+1) % 6, &weakur, &weakvr, &weakwr);
   }
   ur += weakur;
   vr += weakvr;
   wr += weakwr;
-/*
-  MOTOR_TIM->MOTOR_TIM_U = CLAMP(ur + pwm_res/2, 10, pwm_res-10);
-  MOTOR_TIM->MOTOR_TIM_V = CLAMP(vr + pwm_res/2, 10, pwm_res-10);
-  MOTOR_TIM->MOTOR_TIM_W = CLAMP(wr + pwm_res/2, 10, pwm_res-10);
-*/
-    if (ur != 0) {
+
+  // Make sure if Ix==0; turn off PWMx completely
+  if (ur != 0) {
         HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
         HAL_TIMEx_PWMN_Start(&htim1, TIM_CHANNEL_1);
-        MOTOR_TIM->MOTOR_TIM_U = CLAMP(1000+ur, 10, 1990);
+  	MOTOR_TIM->MOTOR_TIM_U = CLAMP(ur + PWM_RES/2, 10, PWM_RES-10);
     } else {
         HAL_TIM_PWM_Stop(&htim1, TIM_CHANNEL_1);
         HAL_TIMEx_PWMN_Stop(&htim1, TIM_CHANNEL_1);
     }
 
-    if (vr != 0) {
+  if (vr != 0) {
         HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_2);
         HAL_TIMEx_PWMN_Start(&htim1, TIM_CHANNEL_2);
-        MOTOR_TIM->MOTOR_TIM_V = CLAMP(1000+vr, 10, 1990);
+  	MOTOR_TIM->MOTOR_TIM_V = CLAMP(vr + PWM_RES/2, 10, PWM_RES-10);
     } else {
         HAL_TIM_PWM_Stop(&htim1, TIM_CHANNEL_2);
         HAL_TIMEx_PWMN_Stop(&htim1, TIM_CHANNEL_2);
     }
 
-   if (wr != 0) {
+ if (wr != 0) {
         HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_3);
         HAL_TIMEx_PWMN_Start(&htim1, TIM_CHANNEL_3);
-        MOTOR_TIM->MOTOR_TIM_W = CLAMP(1000+wr, 10, 1990);
+  	MOTOR_TIM->MOTOR_TIM_W = CLAMP(wr + PWM_RES/2, 10, PWM_RES-10);
     } else {
         HAL_TIM_PWM_Stop(&htim1, TIM_CHANNEL_3);
         HAL_TIMEx_PWMN_Stop(&htim1, TIM_CHANNEL_3);
     }
 
+    State.Status = DONE;
 }
 
 // ===============================================================

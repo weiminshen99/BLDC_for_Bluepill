@@ -1,11 +1,7 @@
 /*
 * Copyright (C) 2022-2023 AARICO Corporation <weiminshen99@gmail.com>
 *
-* This file is modified from a branch of hoverboard-firmware-hack project.
-*
-* Copyright (C) 2017-2018 Rene Hopf <renehopf@mac.com>
-* Copyright (C) 2017-2018 Nico Stute <crinq@crinq.de>
-* Copyright (C) 2017-2018 Niklas Fauth <niklas.fauth@kit.fail>
+* This file is part of the Bare_FOC project.
 *
 * This program is free software: you can redistribute it and/or modify
 * it under the terms of the GNU General Public License as published by
@@ -28,6 +24,7 @@
 #include "sense.h"
 #include "bldc.h"
 
+volatile State_t State = {0};
 volatile uint32_t timeout = 0;
 extern volatile int pwmr;
 
@@ -40,43 +37,46 @@ int main(void)
   LED_Init();
 
   Buzzer_Start();
-
-  //Motor_and_Sensors_Start(1);
-
   Sensors_Trigger_Start(3);
   Motor_Timer_Start();
 
-//  const uint8_t index_to_pos[6] = {1,3,2,6,4,5}; 	// forward (CW)
-  const uint8_t index_to_pos[6] = {1,5,4,6,2,3};	// backward or CCW
+  const uint8_t index_to_hall[6] = {1,5,4,6,2,3};
+	//  Forward (CW): {1,3,2,6,4,5};
+  	// Backward(CCW): {1,3,2,6,4,5};
 
   int main_loop_counter = 0;
 
-  pwmr = 400;
+  State.PWM_desired = 400;
+  State.SensorCalibCounter = 2;	// 1000
+  State.Ia = 4;			// 2000
+  State.Ib = 4;			// 2000
+
+  int simulate_hall_sequence = 0;
 
   while (1)
   {
 	Buzzer_Volume_Set(adc_buffer[0]);
 
-	// THe folloowing works with Hall sensors and Binary BLDC.
-	//Trap_BLDC_Step(-1);	// -1 means using real hall sensors
-	//HAL_Delay(4);	// No delay works, 1 -> 5 smoother, but Delay10) not working
+        if (State.Status==1) {
+	   Trap_BLDC_Step(-1);	// -1 means using real hall sensors
+	   //HAL_Delay(4);	// No delay works, 1 -> 5 smoother, but Delay(10) not working
+	}
 
-	//Trap_BLDC_Step( index_to_pos[main_loop_counter%6] );
-
-	// Trap_BLDC_Step(hall); // did the following experiments:
-	// THE EXISTING CODE DOES THE FOLLOWING! Ver Strange!
-	// hall(cba,wvu)	xpos	pwm
+	if (simulate_hall_sequence) {
+	   // use Trap_BLDC_Step(hall_pos) do the following experiments:
+	   Trap_BLDC_Step( index_to_hall[main_loop_counter%6] );
+	// THE EXISTING CODE DOES THE FOLLOWING! Very Strange!
+	// hall(cba,wvu)      posr?	pwm
 	// 1,0,7		2	C->A
 	// 3			3	C->B
 	// 2 			4	A->B
 	// 6			5	A->C
 	// 4 			0	B->C
 	// 5			1	B->A
-
-
-	//HAL_GPIO_TogglePin(LED_PORT, LED_PIN);
+	}
 
     	main_loop_counter += 1;
+	HAL_GPIO_TogglePin(LED_PORT, LED_PIN);
 	timeout++;
   }
 }
