@@ -47,9 +47,9 @@ void Sensors_Trigger_Start(uint8_t trigger)
   	ADC1->CR2 |= ADC_CR2_EXTSEL_0; // external trigger source = 011 (i.e., T2_CC2)
         Buzzer_Start();		// start TIM2 to trigger ADC1
     } else if (trigger==3) {
-  	ADC1->CR2 != ADC_CR2_EXTSEL_2; // external trigger source = 100 (i.e., T3_TRGO)
-  	ADC1->CR2 &= ~ADC_CR2_EXTSEL_1; // external trigger source = 100 (i.e., T3_TRGO)
-  	ADC1->CR2 &= ~ADC_CR2_EXTSEL_0; // external trigger source = 100 (i.e., T3_TRGO)
+  	//ADC1->CR2 != ADC_CR2_EXTSEL_2; // external trigger source = 100 (i.e., T3_TRGO)
+  	//ADC1->CR2 &= ~ADC_CR2_EXTSEL_1; // external trigger source = 100 (i.e., T3_TRGO)
+  	//ADC1->CR2 &= ~ADC_CR2_EXTSEL_0; // external trigger source = 100 (i.e., T3_TRGO)
         TIM3_Init();
         HAL_TIM_Base_Start(&htim3); // TIM3 (T3_TRGO) will trigger ADC1
     } else {
@@ -72,8 +72,8 @@ void ADC1_Init(void)
   hadc1.Init.ScanConvMode          = ADC_SCAN_ENABLE;
   hadc1.Init.ContinuousConvMode    = DISABLE;
   hadc1.Init.DiscontinuousConvMode = DISABLE;
-  //hadc1.Init.ExternalTrigConv      = ADC_EXTERNALTRIGCONV_T3_TRGO; // to be triggered by TIM3
-  hadc1.Init.ExternalTrigConv      = ADC_EXTERNALTRIGCONV_T1_CC1; // to be triggered by TIM1->CCR1
+  hadc1.Init.ExternalTrigConv      = ADC_EXTERNALTRIGCONV_T3_TRGO; // to be triggered by TIM3
+  //hadc1.Init.ExternalTrigConv      = ADC_EXTERNALTRIGCONV_T1_CC1; // to be triggered by TIM1->CCR1
   //hadc1.Init.ExternalTrigConv      = ADC_SOFTWARE_START;
   hadc1.Init.DataAlign             = ADC_DATAALIGN_RIGHT;
   hadc1.Init.NbrOfConversion       = 1;
@@ -174,7 +174,7 @@ void DMA1_Channel1_IRQHandler(void)
 {
     DMA1->IFCR = DMA_IFCR_CTCIF1; // clear flag
 
-    //Trap_BLDC_Step(-1); // not working here
+    Trap_BLDC_Step(-1); // not working here
 
     //HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13); // show LED
 }
@@ -192,13 +192,16 @@ void ADC1_2_IRQHandler(void)
 
 
 // =========================================================
+// This is to be used to trigger ADC1 automatically
+//
 void TIM3_Init(void)
-{ // This is to be used to trigger ADC1 automatically
+{
+  __HAL_RCC_TIM3_CLK_ENABLE();
 
   htim3.Instance = TIM3;
   htim3.Init.Prescaler = 0;
   htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim3.Init.Period = 2000; // also accessible via TIM3->ARR
+  htim3.Init.Period = 10000; // also accessible via TIM3->ARR
   htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
   if (HAL_TIM_Base_Init(&htim3) != HAL_OK) Error_Handler();
@@ -211,6 +214,4 @@ void TIM3_Init(void)
   sMasterConfig.MasterOutputTrigger = TIM_TRGO_UPDATE;
   sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
   if (HAL_TIMEx_MasterConfigSynchronization(&htim3, &sMasterConfig) != HAL_OK) Error_Handler();
-
-  __HAL_RCC_TIM3_CLK_ENABLE();
 }
