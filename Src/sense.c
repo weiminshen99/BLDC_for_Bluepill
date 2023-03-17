@@ -80,18 +80,6 @@ inline int blockPhaseCurrent(int pos, int u, int v)
    }
 }
 
-
-const uint8_t hall_to_pos[8] = {
-    0,
-    0,
-    2,
-    1,
-    4,
-    5,
-    3,
-    0,
-};
-
 // ==========================================================================
 void Process_Raw_Sensor_Data()
 {

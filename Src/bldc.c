@@ -5,6 +5,18 @@
 #include "sysinit.h"
 #include "bldc.h"
 
+
+const uint8_t hall_to_pos[8] = {
+    0,
+    0,
+    2,
+    1,
+    4,
+    5,
+    3,
+    0,
+};
+
 // ================================================================
 inline void blockPWM(int pwm, int pos, int *u, int *v, int *w) {
   switch(pos) {

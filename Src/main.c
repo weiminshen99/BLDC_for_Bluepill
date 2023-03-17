@@ -25,8 +25,6 @@
 #include "bldc.h"
 
 volatile State_t State = {0};
-volatile uint32_t timeout = 0;
-extern volatile int pwmr;
 
 int main(void)
 {
@@ -52,10 +50,11 @@ int main(void)
   State.Ib = 4;			// 2000
 
   int simulate_hall_sequence = 0;
+  int timeout = 0;
 
   while (1)
   {
-	Buzzer_Volume_Set(adc_buffer[0]);
+	Buzzer_Volume_Set(State.Ia);
 
         if (State.Status==1) {
 	   Trap_BLDC_Step(-1);	// -1 means using real hall sensors
