@@ -113,8 +113,10 @@ void Process_Raw_Sensor_Data()
     // update State: Ia Ib Ic
     int index = (hall_to_pos[State.POS_now]+2)%6;
 
-    State.Ia = (State.Ia + adc_buffer[0])/2;
-    State.Ib = (State.Ib + adc_buffer[1])/2;
+    State.Ia = adc_buffer[0];
+    State.Ia = adc_buffer[1];
+//    State.Ia = (State.Ia + adc_buffer[0])/2;
+//    State.Ib = (State.Ib + adc_buffer[1])/2;
     State.Ic = blockPhaseCurrent(index, State.Ia, State.Ib);
 
     State.Status = READY;
@@ -159,11 +161,11 @@ void ADC1_Init(void)
   hadc1.Init.ScanConvMode          = ADC_SCAN_ENABLE;
   hadc1.Init.ContinuousConvMode    = DISABLE;
   hadc1.Init.DiscontinuousConvMode = DISABLE;
-  hadc1.Init.ExternalTrigConv      = ADC_EXTERNALTRIGCONV_T3_TRGO; // to be triggered by TIM3
-  //hadc1.Init.ExternalTrigConv      = ADC_EXTERNALTRIGCONV_T1_CC1; // to be triggered by TIM1->CCR1
-  //hadc1.Init.ExternalTrigConv      = ADC_SOFTWARE_START;
+  hadc1.Init.ExternalTrigConv      = ADC_EXTERNALTRIGCONV_T3_TRGO; 	// TIM3 trigger
+  //hadc1.Init.ExternalTrigConv      = ADC_EXTERNALTRIGCONV_T1_CC1; 	// TIM1->CCR1 trigger
+  //hadc1.Init.ExternalTrigConv      = ADC_SOFTWARE_START;		// software trigger
   hadc1.Init.DataAlign             = ADC_DATAALIGN_RIGHT;
-  hadc1.Init.NbrOfConversion       = 1;
+  hadc1.Init.NbrOfConversion       = 5;
   HAL_ADC_Init(&hadc1);
 
   // Configure the ADC multi-mode
@@ -174,7 +176,7 @@ void ADC1_Init(void)
   ADC_ChannelConfTypeDef sConfig;
   sConfig.SamplingTime = ADC_SAMPLETIME_7CYCLES_5;
 
-  sConfig.Channel = ADC_CHANNEL_7;  // PA7
+  sConfig.Channel = ADC_CHANNEL_1;  // PA1
   sConfig.Rank    = ADC_REGULAR_RANK_1;
   HAL_ADC_ConfigChannel(&hadc1, &sConfig);
 
@@ -221,8 +223,8 @@ void ADC1_Init(void)
   GPIO_InitStruct.Pull  = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   __HAL_RCC_GPIOA_CLK_ENABLE();
-  //GPIO_InitStruct.Pin = GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_3 | GPIO_PIN_4 | GPIO_PIN_5;
-  GPIO_InitStruct.Pin = GPIO_PIN_7;
+  GPIO_InitStruct.Pin = GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_3 | GPIO_PIN_4 | GPIO_PIN_5;
+  //GPIO_InitStruct.Pin = GPIO_PIN_7;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 }
 
@@ -246,7 +248,7 @@ void DMA1_Init(void)
 
     __HAL_DMA_ENABLE(&hdma_adc1);
 
-    HAL_DMA_Start_IT(&hdma_adc1, (uint32_t) &(ADC1->DR), (uint32_t) &(adc_buffer), 1);
+    HAL_DMA_Start_IT(&hdma_adc1, (uint32_t) &(ADC1->DR), (uint32_t) &(adc_buffer), 5);
 
     // enable interrupt of DMA1_Channel1
     HAL_NVIC_SetPriority(DMA1_Channel1_IRQn, 0, 0);

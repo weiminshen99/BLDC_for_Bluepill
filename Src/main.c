@@ -24,7 +24,10 @@
 #include "sense.h"
 #include "bldc.h"
 
-volatile State_t State = {0};
+//
+// globle variables
+//
+volatile State_t State = {0};	// shared everywhere
 
 int main(void)
 {
@@ -45,9 +48,9 @@ int main(void)
   int main_loop_counter = 0;
 
   State.PWM_desired = 400;
-  State.SensorCalibCounter = 2;	// 1000
-  State.Ia = 4;			// 2000
-  State.Ib = 4;			// 2000
+  State.SensorCalibCounter = 0;		// 1000
+  State.Ia = 2000;			// 2000
+  State.Ib = 2000;			// 2000
 
   int simulate_hall_sequence = 0;
   int timeout = 0;
