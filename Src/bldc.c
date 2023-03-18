@@ -6,16 +6,49 @@
 #include "bldc.h"
 
 
-const uint8_t hall_to_pos[8] = {
-    0,
-    0,
-    2,
-    1,
-    4,
-    5,
-    3,
-    0,
-};
+const uint8_t hall_to_pos[8] = { 0, 0, 2, 1, 4, 5, 3, 0 };
+
+const uint8_t hall_sequence[6] = { 1, 3, 2, 6, 4, 5};
+
+// ===========================================================================
+inline void hall_to_action(uint8_t hall, int torquePWM, int *a, int *b, int *c) 
+{  // hall is a binary string: Ha_Hb_Hc
+   switch(hall) {
+      case '\100': 
+	*a = torquePWM;	
+	*b = -torquePWM/2; 
+	*c = -torquePWM/2;
+	break; 
+      case '\010': 
+	*a = -torquePWM/2;
+	*b = torquePWM; 
+	*c = -torquePWM/2; 
+	break; 
+      case '\001': 
+	*a = -torquePWM/2;
+	*b = -torquePWM/2; 
+	*c = torquePWM; 
+	break; 
+      case '\110': 
+	*a = torquePWM/2;
+	*b = torquePWM/2; 
+	*c = -torquePWM; 
+	break; 
+      case '\011': 
+	*a = -torquePWM;
+	*b = torquePWM/2; 
+	*c = torquePWM/2; 
+	break; 
+      case '\101': 
+	*a = torquePWM/2;
+	*b = -torquePWM; 
+	*c = torquePWM/2; 
+      default: 
+	*a = torquePWM;
+	*b = -torquePWM/2; 
+	*c = -torquePWM/2; 
+   }
+}
 
 // ================================================================
 inline void blockPWM(int pwm, int pos, int *u, int *v, int *w) {
@@ -76,13 +109,13 @@ void Trap_BLDC_Step(uint8_t simulated_hall_pos)
   volatile int weakr = 0;
   volatile int pwmr = 0;
 
-  pwmr = State.PWM_desired;
+  pwmr = State.TorquePWM_desired;
 
   // for simulation
   if (simulated_hall_pos>=0 && simulated_hall_pos<=6) {
 	posr = simulated_hall_pos;
   } else {
-	posr = (hall_to_pos[State.POS_now] + 2) %6;
+	posr = (hall_to_pos[State.POS_now] + 2) % 6; // a bit strange
   }
 
 
@@ -124,7 +157,8 @@ void Trap_BLDC_Step(uint8_t simulated_hall_pos)
   }*/
 
   //update PWM channels based on position
-  blockPWM(pwmr, posr, &ur, &vr, &wr);
+//  blockPWM(pwmr, posr, &ur, &vr, &wr);	// old way to do things
+  hall_to_action(State.POS_next, pwmr, &ur, &vr, &wr); // new way to do things
 
   int weakur, weakvr, weakwr;
   if (pwmr > 0) {	// forward
@@ -136,6 +170,11 @@ void Trap_BLDC_Step(uint8_t simulated_hall_pos)
   vr += weakvr;
   wr += weakwr;
 
+  MOTOR_TIM->MOTOR_TIM_U = CLAMP(ur + PWM_RES/2, 10, PWM_RES-10);
+  MOTOR_TIM->MOTOR_TIM_V = CLAMP(vr + PWM_RES/2, 10, PWM_RES-10);
+  MOTOR_TIM->MOTOR_TIM_W = CLAMP(wr + PWM_RES/2, 10, PWM_RES-10);
+
+/*
   // Make sure if Ix==0; turn off PWMx completely
   if (ur != 0) {
         HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
@@ -163,6 +202,7 @@ void Trap_BLDC_Step(uint8_t simulated_hall_pos)
         HAL_TIM_PWM_Stop(&htim1, TIM_CHANNEL_3);
         HAL_TIMEx_PWMN_Stop(&htim1, TIM_CHANNEL_3);
     }
+*/
 
     State.Status = DONE;
 }

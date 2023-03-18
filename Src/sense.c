@@ -9,8 +9,8 @@
 
 #include "defines.h"
 #include "sense.h"
-#include "bldc.h"
 #include "buzzer.h"
+#include "bldc.h"
 
 void Sensors_Trigger_Start(uint8_t trigger)
 {
@@ -48,8 +48,6 @@ void DMA1_Channel1_IRQHandler(void)
     //HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13); // show LED
 
     Emergency_Shut_Down();
-
-    State.POS_now = HALL_Sense();
 
     Process_Raw_Sensor_Data();
 
@@ -91,6 +89,14 @@ void Process_Raw_Sensor_Data()
       return;
     }
 
+    // Fill in the information for State
+    State.POS_now = HALL_Sense();
+    State.Ia = adc_buffer[0]; // (State.Ia + adc_buffer[0])/2;
+    State.Ib = adc_buffer[1]; // (State.Ib + adc_buffer[1])/2;
+    //State.Ic = computerPhaseC(State.Ia, State.Ib);
+
+    State.Status = READY;
+
     //disable PWM when current limit is reached (current chopping)
     //if (ABS((adc_buffer[2] - offset_Iout) * MOTOR_AMP_CONV_DC_AMP)  > DC_CUR_LIMIT ) {
     //if (timeout > TIMEOUT || motor_enable == 0) {
@@ -110,16 +116,6 @@ void Process_Raw_Sensor_Data()
     //  batteryVoltage = batteryVoltage * 0.99 + ((float)adc_buffer[3] * ((float)BAT_CALIB_REAL_VOLTAGE / (float)BAT_CALIB_ADC)) * 0.01;
     //}
 
-    // update State: Ia Ib Ic
-    int index = (hall_to_pos[State.POS_now]+2)%6;
-
-    State.Ia = adc_buffer[0];
-    State.Ia = adc_buffer[1];
-//    State.Ia = (State.Ia + adc_buffer[0])/2;
-//    State.Ib = (State.Ib + adc_buffer[1])/2;
-    State.Ic = blockPhaseCurrent(index, State.Ia, State.Ib);
-
-    State.Status = READY;
 }
 
 

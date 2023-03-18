@@ -58,3 +58,20 @@ So a basic BLDC controller simply looks up a desired action to produce the desir
 
 That is all.
 
+	=========================
+	Some Implementation Ideas
+	=========================
+
+Notice that H_pos and action may have a one-to-one mapping as follows (to be verified by experiments):
+
+	H_abc	Action
+	=========================
+	001	-Ia,-Ib,+Ic
+	010	-Ia,+Ib,-Ic
+	100	+Ia,-Ib,-Ic
+	011	-Ia,+Ib,+Ic
+	101	-Ia,+Ib,-Ic
+	100	+Ia,-Ib,-Ic
+
+If so, then we can directly map a target H_pos to an action!!!
+

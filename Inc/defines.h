@@ -28,8 +28,9 @@ typedef struct {
   uint16_t Ib;
   uint16_t Ic;
   uint16_t POS_now;
-  uint16_t POS_desired;
-  uint16_t PWM_desired;
+  uint16_t POS_next;
+  uint16_t POS_target;
+  uint16_t TorquePWM_desired;
   uint16_t SensorCalibCounter;
   uint8_t  Status;
 } State_t;
