@@ -74,17 +74,26 @@ void BLDC_Step(int x)
     int h_pos;
 
     // update PWM channels based on input type and x
-    if (x<0) { // use State.H_VAL_now
+    if (x<0) { // x indicates to use State.H_VAL_now
 	h_pos = hallValue_to_hallPos[State.H_VAL_now];
-	hall_pos_to_PWM(h_pos, (int)State.TorquePWM_desired, &ur, &vr, &wr);
-    } else if (0<x && x<6 && State.InputType == H_VAL) { // x is h_pos
-	hall_pos_to_PWM(x, State.TorquePWM_desired, &ur, &vr, &wr);
-    } else if (State.InputType == H_POS) {
-	hall_pos_to_PWM(x, State.TorquePWM_desired, &ur, &vr, &wr);
-    } else if (State.InputType == ANGLE) {
-	angle_to_PWM(x, State.TorquePWM_desired, &ur, &vr, &wr);
-    } else if (State.InputType == ROTATION) {
-	rotation_to_PWM(x, State.TorquePWM_desired, &ur, &vr, &wr);
+	hall_pos_to_PWM(h_pos, State.TorquePWM_desired, &ur, &vr, &wr);
+    } else { // x is input value
+	switch (State.InputType) {
+	   case H_VAL: // x is h_value
+		h_pos = hallValue_to_hallPos[x];
+	        hall_pos_to_PWM(h_pos, State.TorquePWM_desired, &ur, &vr, &wr);
+		break;
+	   case H_POS: // x is h_pos
+		hall_pos_to_PWM(x, State.TorquePWM_desired, &ur, &vr, &wr);
+		break;
+	   case ANGLE: // x is angle [0,360]
+		angle_to_PWM(x, State.TorquePWM_desired, &ur, &vr, &wr);
+		break;
+    	   case ROTATION: // x is a rotation R.A
+		rotation_to_PWM(x, State.TorquePWM_desired, &ur, &vr, &wr);
+		break;
+	   default: break;
+	}
     }
 
 

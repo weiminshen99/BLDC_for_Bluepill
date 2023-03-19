@@ -42,7 +42,7 @@ int main(void)
   Motor_Timer_Start();
 
   // State_Init()
-  State.TorquePWM_desired = -300;	// 300 normal, but -300 doubled the speed. BUG.
+  State.TorquePWM_desired = 300;	// 300 normal, -300 goes the other direction
   State.SensorCalibCounter = 0;		// 1000
   State.Ia = 2000;			// 2000
   State.Ib = 2000;			// 2000
@@ -51,27 +51,30 @@ int main(void)
   int main_loop_counter = 0;
   int timeout = 0;
 
-  int simulation = 0;
+  int simulation = 1;
 
-//  int index_to_h_value[6] = {1,3,2,6,4,5}; // forward, both seq moves the same dir
-  int index_to_h_value[6] = {1,5,4,6,2,3}; // backward, both seq moves the same dir
+  int h_value_sequence[6] = {1,3,2,6,4,5};
 
   while (1)
   {
 	Buzzer_Volume_Set(State.Ia);
 
-	if (simulation) {
-	    State.H_VAL_now = index_to_h_value[main_loop_counter%6];
-	    State.Status = READY;
+	if (simulation==0) {
+	    if (State.Status == READY) { // wait for ADC1 did its job
+	       BLDC_Step(-1); // -1 means use State.H_VAL_now
+	    }
+        } else { // call BLDC_Step with the simulated input
 	    HAL_Delay(10); // simulate the time for ADC1 reading
-	    BLDC_Step(-1);
-  	    //BLDC_Step(ANGLE, main_loop_counter%360);
-	    //BLDC_Step(ROTATION, main_loop_counter%360);
-	} else if (State.Status == READY) {
-	    // State.H_VAL_now has been read by ADC1
-	    BLDC_Step(-1); // -1 means ADC1 reads Hall sensors
+	    if (State.InputType == H_VAL) {
+		BLDC_Step(h_value_sequence[main_loop_counter%6]);
+	    } else if (State.InputType == H_POS) {
+		BLDC_Step(main_loop_counter%6);
+	    } else if (State.InputType == ANGLE) {
+		BLDC_Step(main_loop_counter%360);
+	    } else {
+		BLDC_Step(main_loop_counter%3600);
+	    }
 	}
-
     	main_loop_counter += 1;
 	//HAL_GPIO_TogglePin(LED_PORT, LED_PIN);
 	timeout++;
