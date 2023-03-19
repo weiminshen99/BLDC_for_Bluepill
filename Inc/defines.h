@@ -28,16 +28,16 @@ typedef enum { READY, DONE } Status_t;
 typedef enum { H_VAL, H_POS, ANGLE, ROTATION } Input_Type_t;
 
 typedef struct {
-  uint16_t Ia;
-  uint16_t Ib;
-  uint16_t Ic;
-  uint16_t H_VAL_now;
-  uint16_t POS_next;
-  uint16_t POS_target;
-  uint16_t TorquePWM_desired;
-  uint16_t SensorCalibCounter;
-  Status_t Status;
-  Input_Type_t InputType;
+  uint32_t 	Ia;
+  uint32_t 	Ib;
+  uint32_t 	Ic;
+  int 		TorquePWM_desired;
+  uint8_t 	H_VAL_now;
+  uint16_t 	POS_next;
+  uint16_t 	POS_target;
+  uint16_t 	SensorCalibCounter;
+  Status_t 	Status;
+  Input_Type_t 	InputType;
 } State_t;
 
 

@@ -5,7 +5,6 @@
 #include "sysinit.h"
 #include "bldc.h"
 
-
 const uint8_t hallValue_to_hallPos[8] = { 0, 0, 2, 1, 4, 5, 3, 0 };
 
 // ===================================================================
@@ -69,24 +68,24 @@ void rotation_to_PWM(int rotation, int pwm, int *u, int *v, int *w)
 // ======================================================
 void BLDC_Step(int x)
 {
-  if (State.Status != READY) return;
+    if (State.Status != READY) return;
 
-  int ur, vr, wr;
-  int h_pos;
+    int ur, vr, wr;
+    int h_pos;
 
-  //update PWM channels based on input position
-  //  blockPWM(pwmr, posr, &ur, &vr, &wr);	// old way to do things
-
-  if (State.InputType == H_VAL) {
+    // update PWM channels based on input type and x
+    if (x<0) { // use State.H_VAL_now
 	h_pos = hallValue_to_hallPos[State.H_VAL_now];
-	hall_pos_to_PWM(h_pos, State.TorquePWM_desired, &ur, &vr, &wr);
-  } else if (State.InputType == H_POS) {
+	hall_pos_to_PWM(h_pos, (int)State.TorquePWM_desired, &ur, &vr, &wr);
+    } else if (0<x && x<6 && State.InputType == H_VAL) { // x is h_pos
 	hall_pos_to_PWM(x, State.TorquePWM_desired, &ur, &vr, &wr);
-  } else if (State.InputType == ANGLE) {
+    } else if (State.InputType == H_POS) {
+	hall_pos_to_PWM(x, State.TorquePWM_desired, &ur, &vr, &wr);
+    } else if (State.InputType == ANGLE) {
 	angle_to_PWM(x, State.TorquePWM_desired, &ur, &vr, &wr);
-  } else if (State.InputType == ROTATION) {
+    } else if (State.InputType == ROTATION) {
 	rotation_to_PWM(x, State.TorquePWM_desired, &ur, &vr, &wr);
-  }
+    }
 
 
   //  int last_pos = 0;
@@ -134,28 +133,28 @@ void BLDC_Step(int x)
       HAL_GPIO_WritePin(BUZZER_PORT, BUZZER_PIN, 0);
   }*/
 
-  volatile int weakr = 0;
-  volatile int pwmr = State.TorquePWM_desired;
-  volatile int posr = hallValue_to_hallPos[State.H_VAL_now];
+    //
+    // implementing weakening
+    //
+    int weakur, weakvr, weakwr;
+    volatile int weakr = 0;
+    volatile int pwmr = State.TorquePWM_desired;
+    volatile int posr = hallValue_to_hallPos[State.H_VAL_now];
 
-  int weakur, weakvr, weakwr;
-  if (pwmr > 0) {	// forward
-    action_to_PWM(weakr, (posr+5) % 6, &weakur, &weakvr, &weakwr);
-  } else {		// backword
-    action_to_PWM(-weakr, (posr+1) % 6, &weakur, &weakvr, &weakwr);
-  }
-  ur += weakur;
-  vr += weakvr;
-  wr += weakwr;
+    if (pwmr > 0) {	// forward
+       action_to_PWM(weakr, (posr+5) % 6, &weakur, &weakvr, &weakwr);
+    } else {		// backword
+       action_to_PWM(-weakr, (posr+1) % 6, &weakur, &weakvr, &weakwr);
+    }
+    ur += weakur;
+    vr += weakvr;
+    wr += weakwr;
 
-/*
-  MOTOR_TIM->MOTOR_TIM_U = CLAMP(ur + PWM_RES/2, 10, PWM_RES-10);
-  MOTOR_TIM->MOTOR_TIM_V = CLAMP(vr + PWM_RES/2, 10, PWM_RES-10);
-  MOTOR_TIM->MOTOR_TIM_W = CLAMP(wr + PWM_RES/2, 10, PWM_RES-10);
-*/
-
-  // Make sure if Ix==0; turn off PWMx completely
-  if (ur != 0) {
+    //
+    // Executing PWM: If Ix==0; then turn off PWMx completely
+    //                else, just updating PWM CCRx
+    //
+    if (ur != 0) {
         HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
         HAL_TIMEx_PWMN_Start(&htim1, TIM_CHANNEL_1);
   	MOTOR_TIM->MOTOR_TIM_U = CLAMP(ur + PWM_RES/2, 10, PWM_RES-10);
@@ -164,7 +163,7 @@ void BLDC_Step(int x)
         HAL_TIMEx_PWMN_Stop(&htim1, TIM_CHANNEL_1);
     }
 
-  if (vr != 0) {
+    if (vr != 0) {
         HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_2);
         HAL_TIMEx_PWMN_Start(&htim1, TIM_CHANNEL_2);
   	MOTOR_TIM->MOTOR_TIM_V = CLAMP(vr + PWM_RES/2, 10, PWM_RES-10);
@@ -173,7 +172,7 @@ void BLDC_Step(int x)
         HAL_TIMEx_PWMN_Stop(&htim1, TIM_CHANNEL_2);
     }
 
- if (wr != 0) {
+    if (wr != 0) {
         HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_3);
         HAL_TIMEx_PWMN_Start(&htim1, TIM_CHANNEL_3);
   	MOTOR_TIM->MOTOR_TIM_W = CLAMP(wr + PWM_RES/2, 10, PWM_RES-10);

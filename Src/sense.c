@@ -22,7 +22,7 @@ void Sensors_Trigger_Start(uint8_t trigger)
   	ADC1->CR2 &= ~ADC_CR2_EXTSEL; // set ExternalTriggerSource = 000 (i.e., T1_CC1)
 	Motor_Timer_Start();	// default: start TIM1 to trigger ADC1
 	// WARNING: ADC1 will stop if TIM1_PWM1 becomes inactivity sometimes, Caution
-	TIM1->CCR1 = 1000;	// make sure initially TIM1 PWM1 is active to trigger ADC1
+	//TIM1->CCR1 = 1000;	// make sure initially TIM1 PWM1 is active to trigger ADC1
     } else if (trigger==2) {
   	ADC1->CR2 &= ~ADC_CR2_EXTSEL_2; // external trigger source = 011 (i.e., T2_CC2)
   	ADC1->CR2 |= ADC_CR2_EXTSEL_1; // external trigger source = 011 (i.e., T2_CC2)

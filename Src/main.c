@@ -42,7 +42,7 @@ int main(void)
   Motor_Timer_Start();
 
   // State_Init()
-  State.TorquePWM_desired = 300;	// 300 normal, -300 make it faster. BUG.
+  State.TorquePWM_desired = -300;	// 300 normal, but -300 doubled the speed. BUG.
   State.SensorCalibCounter = 0;		// 1000
   State.Ia = 2000;			// 2000
   State.Ib = 2000;			// 2000
@@ -51,7 +51,7 @@ int main(void)
   int main_loop_counter = 0;
   int timeout = 0;
 
-  int simulation = 1;
+  int simulation = 0;
 
 //  int index_to_h_value[6] = {1,3,2,6,4,5}; // forward, both seq moves the same dir
   int index_to_h_value[6] = {1,5,4,6,2,3}; // backward, both seq moves the same dir
