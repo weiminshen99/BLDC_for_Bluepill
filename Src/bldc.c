@@ -64,33 +64,37 @@ void hall_to_action(uint8_t hall, int torquePWM, int *a, int *b, int *c)
 {
    /*     HcHbHa     Action
         =========================
-        001          (b->a)
+        001          (c->a)
+        010          (a->b)
         011          (c->b)
-        010          (c->a)
-        110          (b->c)
-        100          (a->b)
-        101          (a->c)
+        100          (b->c)
+        101          (b->a)
+        110          (a->c)
    */
-   switch(hall) {
-      case 6:
+
+   int index = ( hall_to_pos[hall]+2 ) % 6;
+
+   switch(index) {
+      case 0:
 	*a = 0;	*b = torquePWM;	*c = -torquePWM; // b->c
-	break;
-      case 4:
-	*a = torquePWM;	*b = -torquePWM; *c = 0; // a->b
-	break;
-      case 3:
-	*a = 0;	*b = -torquePWM; *c = torquePWM; // c->b
-	break;
-      case 5:
-	*a = torquePWM;	*b = 0;	*c = -torquePWM; // a->c
 	break;
       case 1:
 	*a = -torquePWM; *b = torquePWM; *c = 0; // b->a
 	break;
       case 2:
 	*a = -torquePWM; *b = 0; *c = torquePWM; // c->a
+	break;
+      case 3:
+	*a = 0;	*b = -torquePWM; *c = torquePWM; // c->b
+	break;
+      case 4:
+	*a = torquePWM;	*b = -torquePWM; *c = 0; // a->b
+	break;
+      case 5:
+	*a = torquePWM;	*b = 0;	*c = -torquePWM; // a->c
+	break;
       default:
-	*a = torquePWM;	*b = -torquePWM; *c = 0;
+	*a = 0; *b = torquePWM;	*c = -torquePWM;
    }
 }
 
@@ -194,7 +198,7 @@ void Trap_BLDC_Step(uint8_t simulated_hall_pos)
   if (simulated_hall_pos>=0 && simulated_hall_pos<=6) {
 	posr = simulated_hall_pos;
   } else {
-	posr = (hall_to_pos[State.POS_now] + 2) % 6; // a bit strange
+	posr = (hall_to_pos[State.H_POS_now] + 2) % 6; // a bit strange
   }
 
 
@@ -238,8 +242,7 @@ void Trap_BLDC_Step(uint8_t simulated_hall_pos)
   //update PWM channels based on position
 //  blockPWM(pwmr, posr, &ur, &vr, &wr);	// old way to do things
 
-  int next_pos = hall_sequence[ hall_to_pos[State.POS_now]+1 ];
-  hall_to_action(next_pos, pwmr, &ur, &vr, &wr); // new way to do things
+  hall_to_action(State.H_POS_now, pwmr, &ur, &vr, &wr);
 
   int weakur, weakvr, weakwr;
   if (pwmr > 0) {	// forward

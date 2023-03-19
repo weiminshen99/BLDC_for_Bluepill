@@ -23,18 +23,6 @@
 #pragma once
 #include "stm32f1xx_hal.h"
 
-typedef struct {
-  uint16_t Ia;
-  uint16_t Ib;
-  uint16_t Ic;
-  uint16_t POS_now;
-  uint16_t POS_next;
-  uint16_t POS_target;
-  uint16_t TorquePWM_desired;
-  uint16_t SensorCalibCounter;
-  uint8_t  Status;
-} State_t;
-
 #define HALL_U_PIN GPIO_PIN_6
 #define HALL_U_PORT GPIOB
 #define HALL_V_PIN GPIO_PIN_7
@@ -139,3 +127,16 @@ typedef struct {
   uint16_t temp;
   uint16_t l_rx2;
 } adc_buf_t;
+
+
+typedef struct {
+  uint16_t Ia;
+  uint16_t Ib;
+  uint16_t Ic;
+  uint16_t H_POS_now;
+  uint16_t POS_next;
+  uint16_t POS_target;
+  uint16_t TorquePWM_desired;
+  uint16_t SensorCalibCounter;
+  uint8_t  Status;
+} State_t;
