@@ -42,28 +42,34 @@ int main(void)
   Motor_Timer_Start();
 
   // State_Init()
-  State.TorquePWM_desired = 300;
+  State.TorquePWM_desired = 300;	// 300 normal, -300 make it faster. BUG.
   State.SensorCalibCounter = 0;		// 1000
   State.Ia = 2000;			// 2000
   State.Ib = 2000;			// 2000
+  State.InputType = H_VAL;
 
   int main_loop_counter = 0;
-  int simulation = 1;
   int timeout = 0;
+
+  int simulation = 1;
+
+//  int index_to_h_value[6] = {1,3,2,6,4,5}; // forward, both seq moves the same dir
+  int index_to_h_value[6] = {1,5,4,6,2,3}; // backward, both seq moves the same dir
 
   while (1)
   {
 	Buzzer_Volume_Set(State.Ia);
 
 	if (simulation) {
-	      State.InputType = H_POS;
-	      BLDC_Step(main_loop_counter%6);
-	   //BLDC_Step(ANGLE, main_loop_counter%360);
-	   //BLDC_Step(ROTATION, main_loop_counter%360);
+	    State.H_VAL_now = index_to_h_value[main_loop_counter%6];
+	    State.Status = READY;
+	    HAL_Delay(10); // simulate the time for ADC1 reading
+	    BLDC_Step(-1);
+  	    //BLDC_Step(ANGLE, main_loop_counter%360);
+	    //BLDC_Step(ROTATION, main_loop_counter%360);
 	} else if (State.Status == READY) {
-	   // test BLDC after ADC1 reads H_VAL into State
-	   State.InputType = H_VAL;
-	   BLDC_Step(-1); // -1 means ADC1 reads Hall sensors
+	    // State.H_VAL_now has been read by ADC1
+	    BLDC_Step(-1); // -1 means ADC1 reads Hall sensors
 	}
 
     	main_loop_counter += 1;

@@ -36,12 +36,12 @@ The configuration can have the six actions if we assume for beginers that curren
 
         Motor Actions (Current Flow)    Index
         ======================================
-        Ic->Ia                          A0
-        Ic->Ib                          A1
-        Ia->Ib                          A2
-        Ia->Ic                          A3
-        Ib->Ic                          A4
-        Ib->Ia                          A5
+        Ib->Ic                          A0
+        Ib->Ia                          A1
+        Ic->Ia                          A2
+        Ic->Ib                          A3
+        Ia->Ib                          A4
+        Ia->Ic                          A5
 
 
 To rotate the motor into the next desired neighbor H_pos or physical position, 
