@@ -47,7 +47,7 @@ int main(void)
 
   int main_loop_counter = 0;
 
-  State.PWM_desired = 400;
+  State.TorquePWM_desired = 400;
   State.SensorCalibCounter = 0;		// 1000
   State.Ia = 2000;			// 2000
   State.Ib = 2000;			// 2000

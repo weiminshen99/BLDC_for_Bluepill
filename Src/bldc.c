@@ -11,42 +11,121 @@ const uint8_t hall_to_pos[8] = { 0, 0, 2, 1, 4, 5, 3, 0 };
 const uint8_t hall_sequence[6] = { 1, 3, 2, 6, 4, 5};
 
 // ===========================================================================
-inline void hall_to_action(uint8_t hall, int torquePWM, int *a, int *b, int *c) 
-{  // hall is a binary string: Ha_Hb_Hc
-   switch(hall) {
-      case '\100': 
-	*a = torquePWM;	
-	*b = -torquePWM/2; 
-	*c = -torquePWM/2;
-	break; 
-      case '\010': 
-	*a = -torquePWM/2;
-	*b = torquePWM; 
-	*c = -torquePWM/2; 
-	break; 
-      case '\001': 
-	*a = -torquePWM/2;
-	*b = -torquePWM/2; 
-	*c = torquePWM; 
-	break; 
-      case '\110': 
-	*a = torquePWM/2;
-	*b = torquePWM/2; 
-	*c = -torquePWM; 
-	break; 
-      case '\011': 
-	*a = -torquePWM;
-	*b = torquePWM/2; 
-	*c = torquePWM/2; 
-	break; 
-      case '\101': 
-	*a = torquePWM/2;
-	*b = -torquePWM; 
-	*c = torquePWM/2; 
-      default: 
+inline void hall_to_action_test(uint8_t next_hall, int torquePWM, int *a, int *b, int *c) 
+{  // next_hall is a binary string: Hc_Hb_Ha
+   /*     Hx/Px(next)     Action
+        =========================
+        001/P0          A4 (b->c)
+        010/P2          A2 (a->b)
+        011/P1          A1 (c->b)
+        100/P4          A0 (a->c)
+        101/P5          A5 (b->a)
+        110/P3          A0 (c->a)
+   */
+   switch(next_hall) {
+      case 1: // '\001':
+	*a = 0;
+	*b = torquePWM;
+	*c = -torquePWM;
+	break;
+      case 2: // '\010':
 	*a = torquePWM;
-	*b = -torquePWM/2; 
-	*c = -torquePWM/2; 
+	*b = -torquePWM;
+	*c = 0;
+	break;
+      case 3: // '\011':
+	*a = 0;
+	*b = -torquePWM;
+	*c = torquePWM;
+	break;
+      case 4: // '\100':
+	*a = torquePWM;
+	*b = 0;
+	*c = -torquePWM;
+	break;
+      case 5: // '\101':
+	*a = -torquePWM;
+	*b = torquePWM;
+	*c = 0;
+	break;
+      case 6: // '\110':
+	*a = -torquePWM;
+	*b = 0;
+	*c = torquePWM;
+      default:
+	*a = torquePWM;
+	*b = -torquePWM;
+	*c = 0;
+   }
+}
+
+// ===========================================================================
+void hall_to_action(uint8_t hall, int torquePWM, int *a, int *b, int *c)
+{
+   /*     HcHbHa     Action
+        =========================
+        001          (b->a)
+        011          (c->b)
+        010          (c->a)
+        110          (b->c)
+        100          (a->b)
+        101          (a->c)
+   */
+   switch(hall) {
+      case 6:
+	*a = 0;	*b = torquePWM;	*c = -torquePWM; // b->c
+	break;
+      case 4:
+	*a = torquePWM;	*b = -torquePWM; *c = 0; // a->b
+	break;
+      case 3:
+	*a = 0;	*b = -torquePWM; *c = torquePWM; // c->b
+	break;
+      case 5:
+	*a = torquePWM;	*b = 0;	*c = -torquePWM; // a->c
+	break;
+      case 1:
+	*a = -torquePWM; *b = torquePWM; *c = 0; // b->a
+	break;
+      case 2:
+	*a = -torquePWM; *b = 0; *c = torquePWM; // c->a
+      default:
+	*a = torquePWM;	*b = -torquePWM; *c = 0;
+   }
+}
+
+// ===========================================================================
+void hall_to_action_2(uint8_t hall, int torquePWM, int *a, int *b, int *c)
+{
+   /*     HcHbHa     Action
+        =========================
+        001          (c->a)
+        011          (c->b)
+        010          (a->b)
+        110          (a->c)
+        100          (b->c)
+        101          (b->a)
+   */
+   switch(hall) {
+      case 4:
+	*a = 0;	*b = torquePWM;	*c = -torquePWM; // b->c
+	break;
+      case 2:
+	*a = torquePWM;	*b = -torquePWM; *c = 0; // a->b
+	break;
+      case 3:
+	*a = 0;	*b = -torquePWM; *c = torquePWM; // c->b
+	break;
+      case 6:
+	*a = torquePWM;	*b = 0;	*c = -torquePWM; // a->c
+	break;
+      case 5:
+	*a = -torquePWM; *b = torquePWM; *c = 0; // b->a
+	break;
+      case 1:
+	*a = -torquePWM; *b = 0; *c = torquePWM; // c->a
+      default:
+	*a = torquePWM;	*b = -torquePWM; *c = 0;
    }
 }
 
@@ -158,7 +237,9 @@ void Trap_BLDC_Step(uint8_t simulated_hall_pos)
 
   //update PWM channels based on position
 //  blockPWM(pwmr, posr, &ur, &vr, &wr);	// old way to do things
-  hall_to_action(State.POS_next, pwmr, &ur, &vr, &wr); // new way to do things
+
+  int next_pos = hall_sequence[ hall_to_pos[State.POS_now]+1 ];
+  hall_to_action(next_pos, pwmr, &ur, &vr, &wr); // new way to do things
 
   int weakur, weakvr, weakwr;
   if (pwmr > 0) {	// forward
@@ -170,11 +251,12 @@ void Trap_BLDC_Step(uint8_t simulated_hall_pos)
   vr += weakvr;
   wr += weakwr;
 
+/*
   MOTOR_TIM->MOTOR_TIM_U = CLAMP(ur + PWM_RES/2, 10, PWM_RES-10);
   MOTOR_TIM->MOTOR_TIM_V = CLAMP(vr + PWM_RES/2, 10, PWM_RES-10);
   MOTOR_TIM->MOTOR_TIM_W = CLAMP(wr + PWM_RES/2, 10, PWM_RES-10);
+*/
 
-/*
   // Make sure if Ix==0; turn off PWMx completely
   if (ur != 0) {
         HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
@@ -202,7 +284,6 @@ void Trap_BLDC_Step(uint8_t simulated_hall_pos)
         HAL_TIM_PWM_Stop(&htim1, TIM_CHANNEL_3);
         HAL_TIMEx_PWMN_Stop(&htim1, TIM_CHANNEL_3);
     }
-*/
 
     State.Status = DONE;
 }

@@ -48,26 +48,29 @@ To rotate the motor into the next desired neighbor H_pos or physical position,
 you apply the motor action as follows:
 
         now\next        001/P0  010/P2  011/P1  100/P4  101/P5  110/P3
-        ===============================================================
-        001/P0                          A3              A5
-        010/P2                          A3                      A1
-        011/P1          A4      A2
-        100/P4                                          A5      A1
-        101/P5          A4                      A0
-        110/P3                  A2              A0
-        ============================================================
+        ================================================================
+        001/P0                          (c->a)		-(c->a)
+        010/P2                          -(a->b)			(a->b)
+        011/P1		-(c->b)	(c->b)
+        100/P4                                          (b->c)	-(b->c)
+        101/P5          (b->a)			-(b->a)
+        110/P3                  -(a->c)		(a->c)
+        ================================================================
 
-So a basic BLDC controller simply looks up a desired action to produce the desired movement from one H_pos into the next neighbor H_pos position.
+So a basic BLDC controller simply looks up a desired action to produce the desired movement from 
+one H_pos (or physical pos) into the next neighbor H_pos (or physical) position.
 
 For example, to go to a desired next H_pos or physical position, the motor should apply the action as follows:
 
-        Hx/Px(next)     Action
+        P_now	P_next	Action
         =========================
-        001/P0          A4 (b->c)
-        010/P2          A2 (a->b)
-        011/P1          A1 (c->b)
-        100/P4          A0 (a->c)
-        101/P5          A5 (b->a)
-        110/P3          A0 (c->a)
+        P0	P1	(c->a)
+        P0	P5	-(c->a)
+	...	...	...
+        P3	P4	(a->c)
+        P3	P2	-(a->c)
+	...	...	...
+        P5	P0	(b->a)
+        P5	P4	-(b->a)
 
 That is all, folks!
