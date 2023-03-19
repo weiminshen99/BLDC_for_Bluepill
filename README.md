@@ -3,23 +3,26 @@ New BLDC adopted to use Makefile and run on Bluepill.
 
 Here are some simple but key ideas for BLDC motor control:
 
-When reading Hall sensors: Ha, Hb, Hc, they indicates 6 "H_positions"
+When reading Hall sensors: Ha, Hb, Hc, they indicates 6 "H_positions" or 6 physical positions:
 
-	_Hc_Hb_Ha	H_pos
-	=======================	
-	001		H1
-	010		H2
-  	011		H3
-  	100		H4
-  	101		H5
-  	110		H6
+        _Hc_Hb_Ha       H_pos   Phy_position
+        ====================================
+        001             H1      P0
+        010             H2      P2
+        011             H3      P1
+        100             H4      P4
+        101             H5      P5
+        110             H6      P3
 
 
 
 When a BLDC motor rotates in a direction, H_pos changes in sequence:
 
-	Forward: H1 H3 H2 H6 H4 H5
-	Bckward: H1 H5 H4 H6 H2 H3
+        Forward: H1 H3 H2 H6 H4 H5  (in terms of H_pos)
+                 P0 P1 P2 P3 P4 P5  (in terms of physical position)
+
+        Bckward: H5 H4 H6 H2 H3 H1  (in terms of H_pos)
+                 P5 P4 P3 P2 P1 P0  (in terms of physical position)
 
 
 A BLDC motor has three phases: Ia, Ib, Ic, arranged as follows:
@@ -31,47 +34,40 @@ A BLDC motor has three phases: Ia, Ib, Ic, arranged as follows:
 
 The configuration can have the six actions if we assume for beginers that current flows from one phase to another:
 
-	Motor Actions by Current Flow
-	=============================
-	Ia->Ib
-	Ia->Ic
-	Ib->Ic
-	Ib->Ia
-	Ic->Ia
-	Ic->Ib
+        Motor Actions (Current Flow)    Index
+        ======================================
+        Ic->Ia                          A0
+        Ic->Ib                          A1
+        Ia->Ib                          A2
+        Ia->Ic                          A3
+        Ib->Ic                          A4
+        Ib->Ia                          A5
 
 
-To rotate the motor into the desired neighbor H_pos, 
-here are the transition between H_pos using Motor Actions:
+To rotate the motor into the next desired neighbor H_pos or physical position, 
+you apply the motor action as follows:
 
-		001	010	011	100	101	110
-	=====================================================
-	001			Ia->Ic		Ib->Ia
-	010			Ia->Ic			Ic->Ib
-	011	Ib->Ic	Ia->Ib
-	100					Ib->Ia	Ic->Ib
-	101	Ib->Ic			Ic->Ia
-	110		Ia->Ib		Ic->Ia
-	=====================================================
+        now\next        001/P0  010/P2  011/P1  100/P4  101/P5  110/P3
+        ===============================================================
+        001/P0                          A3              A5
+        010/P2                          A3                      A1
+        011/P1          A4      A2
+        100/P4                                          A5      A1
+        101/P5          A4                      A0
+        110/P3                  A2              A0
+        ============================================================
 
 So a basic BLDC controller simply looks up a desired action to produce the desired movement from one H_pos into the next neighbor H_pos position.
 
-That is all.
+For example, to go to a desired next H_pos or physical position, the motor should apply the action as follows:
 
-	=========================
-	Some Implementation Ideas
-	=========================
+        Hx/Px(next)     Action
+        =========================
+        001/P0          A4 (b->c)
+        010/P2          A2 (a->b)
+        100/P1          A1 (c->b)
+        011/P4          A3 (a->c)
+        101/P5          A5 (b->a)
+        100/P3          A0 (c->a)
 
-Notice that H_pos and action may have a one-to-one mapping as follows (to be verified by experiments):
-
-	H_abc	Action
-	=========================
-	001	-Ia,-Ib,+Ic
-	010	-Ia,+Ib,-Ic
-	100	+Ia,-Ib,-Ic
-	011	-Ia,+Ib,+Ic
-	101	-Ia,+Ib,-Ic
-	100	+Ia,-Ib,-Ic
-
-If so, then we can directly map a target H_pos to an action!!!
-
+That is all, folks!
