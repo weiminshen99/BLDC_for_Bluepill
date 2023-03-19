@@ -65,9 +65,9 @@ For example, to go to a desired next H_pos or physical position, the motor shoul
         =========================
         001/P0          A4 (b->c)
         010/P2          A2 (a->b)
-        100/P1          A1 (c->b)
-        011/P4          A3 (a->c)
+        011/P1          A1 (c->b)
+        100/P4          A0 (a->c)
         101/P5          A5 (b->a)
-        100/P3          A0 (c->a)
+        110/P3          A0 (c->a)
 
 That is all, folks!
