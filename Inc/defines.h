@@ -23,6 +23,25 @@
 #pragma once
 #include "stm32f1xx_hal.h"
 
+typedef enum { READY, DONE } Status_t;
+
+typedef enum { H_VAL, H_POS, ANGLE, ROTATION } Input_Type_t;
+
+typedef struct {
+  uint16_t Ia;
+  uint16_t Ib;
+  uint16_t Ic;
+  uint16_t H_VAL_now;
+  uint16_t POS_next;
+  uint16_t POS_target;
+  uint16_t TorquePWM_desired;
+  uint16_t SensorCalibCounter;
+  Status_t Status;
+  Input_Type_t InputType;
+} State_t;
+
+
+
 #define HALL_U_PIN GPIO_PIN_6
 #define HALL_U_PORT GPIOB
 #define HALL_V_PIN GPIO_PIN_7
@@ -98,8 +117,6 @@
 
 #define NO 0
 #define YES 1
-#define DONE 0
-#define READY 1
 #define ABS(a) (((a) < 0.0) ? -(a) : (a))
 #define LIMIT(x, lowhigh) (((x) > (lowhigh)) ? (lowhigh) : (((x) < (-lowhigh)) ? (-lowhigh) : (x)))
 #define SAT(x, lowhigh) (((x) > (lowhigh)) ? (1.0) : (((x) < (-lowhigh)) ? (-1.0) : (0.0)))
@@ -129,14 +146,3 @@ typedef struct {
 } adc_buf_t;
 
 
-typedef struct {
-  uint16_t Ia;
-  uint16_t Ib;
-  uint16_t Ic;
-  uint16_t H_POS_now;
-  uint16_t POS_next;
-  uint16_t POS_target;
-  uint16_t TorquePWM_desired;
-  uint16_t SensorCalibCounter;
-  uint8_t  Status;
-} State_t;

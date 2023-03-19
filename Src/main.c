@@ -41,44 +41,33 @@ int main(void)
   Sensors_Trigger_Start(3);
   Motor_Timer_Start();
 
-  const uint8_t index_to_hall[6] = {1,5,4,6,2,3};
-	//  Forward (CW): {1,3,2,6,4,5};
-  	// Backward(CCW): {1,3,2,6,4,5};
-
-  int main_loop_counter = 0;
-
-  State.TorquePWM_desired = 400;
+  // State_Init()
+  State.TorquePWM_desired = 300;
   State.SensorCalibCounter = 0;		// 1000
   State.Ia = 2000;			// 2000
   State.Ib = 2000;			// 2000
 
-  int simulate_hall_sequence = 0;
+  int main_loop_counter = 0;
+  int simulation = 1;
   int timeout = 0;
 
   while (1)
   {
 	Buzzer_Volume_Set(State.Ia);
 
-        if (State.Status==1) {
-	   Trap_BLDC_Step(-1);	// -1 means using real hall sensors
-	   //HAL_Delay(4);	// No delay works, 1 -> 5 smoother, but Delay(10) not working
-	}
-
-	if (simulate_hall_sequence) {
-	   // use Trap_BLDC_Step(hall_pos) do the following experiments:
-	   Trap_BLDC_Step( index_to_hall[main_loop_counter%6] );
-	// THE EXISTING CODE DOES THE FOLLOWING! Very Strange!
-	// hall(cba,wvu)      posr?	pwm
-	// 1,0,7		2	C->A
-	// 3			3	C->B
-	// 2 			4	A->B
-	// 6			5	A->C
-	// 4 			0	B->C
-	// 5			1	B->A
+	if (simulation) {
+	      State.InputType = H_POS;
+	      BLDC_Step(main_loop_counter%6);
+	   //BLDC_Step(ANGLE, main_loop_counter%360);
+	   //BLDC_Step(ROTATION, main_loop_counter%360);
+	} else if (State.Status == READY) {
+	   // test BLDC after ADC1 reads H_VAL into State
+	   State.InputType = H_VAL;
+	   BLDC_Step(-1); // -1 means ADC1 reads Hall sensors
 	}
 
     	main_loop_counter += 1;
-	HAL_GPIO_TogglePin(LED_PORT, LED_PIN);
+	//HAL_GPIO_TogglePin(LED_PORT, LED_PIN);
 	timeout++;
   }
 }

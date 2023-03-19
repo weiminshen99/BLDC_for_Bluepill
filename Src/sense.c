@@ -1,4 +1,4 @@
-w//
+//
 //	Copyright (C) AAARI Corporation, 2022-2023, <weiminshen99@gmail.com>
 //
 //	Sensor Values are read by ADC1, transered by DMA1_Channel1 to memory adc_buffer
@@ -90,7 +90,7 @@ void Process_Raw_Sensor_Data()
     }
 
     // Fill in the information for State
-    State.H_POS_now = HALL_Sense();
+    State.H_VAL_now = HALL_Sense();
     State.Ia = adc_buffer[0]; // (State.Ia + adc_buffer[0])/2;
     State.Ib = adc_buffer[1]; // (State.Ib + adc_buffer[1])/2;
     //State.Ic = computerPhaseC(State.Ia, State.Ib);

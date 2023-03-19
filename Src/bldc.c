@@ -6,201 +6,96 @@
 #include "bldc.h"
 
 
-const uint8_t hall_to_pos[8] = { 0, 0, 2, 1, 4, 5, 3, 0 };
+const uint8_t hallValue_to_hallPos[8] = { 0, 0, 2, 1, 4, 5, 3, 0 };
 
-const uint8_t hall_sequence[6] = { 1, 3, 2, 6, 4, 5};
-
-// ===========================================================================
-inline void hall_to_action_test(uint8_t next_hall, int torquePWM, int *a, int *b, int *c) 
-{  // next_hall is a binary string: Hc_Hb_Ha
-   /*     Hx/Px(next)     Action
-        =========================
-        001/P0          A4 (b->c)
-        010/P2          A2 (a->b)
-        011/P1          A1 (c->b)
-        100/P4          A0 (a->c)
-        101/P5          A5 (b->a)
-        110/P3          A0 (c->a)
-   */
-   switch(next_hall) {
-      case 1: // '\001':
-	*a = 0;
-	*b = torquePWM;
-	*c = -torquePWM;
-	break;
-      case 2: // '\010':
-	*a = torquePWM;
-	*b = -torquePWM;
-	*c = 0;
-	break;
-      case 3: // '\011':
-	*a = 0;
-	*b = -torquePWM;
-	*c = torquePWM;
-	break;
-      case 4: // '\100':
-	*a = torquePWM;
-	*b = 0;
-	*c = -torquePWM;
-	break;
-      case 5: // '\101':
-	*a = -torquePWM;
-	*b = torquePWM;
-	*c = 0;
-	break;
-      case 6: // '\110':
-	*a = -torquePWM;
-	*b = 0;
-	*c = torquePWM;
-      default:
-	*a = torquePWM;
-	*b = -torquePWM;
-	*c = 0;
-   }
-}
-
-// ===========================================================================
-void hall_to_action(uint8_t hall, int torquePWM, int *a, int *b, int *c)
+// ===================================================================
+inline void action_to_PWM(int pwm, int action, int *u, int *v, int *w)
 {
-   /*     HcHbHa     Action
-        =========================
-        001          (c->a)
-        010          (a->b)
-        011          (c->b)
-        100          (b->c)
-        101          (b->a)
-        110          (a->c)
+   /*   Action	PWM
+        ===============
+        0      (b->c)
+        1      (b->a)
+        2      (c->a)
+        3      (c->b)
+        4      (a->b)
+        5      (a->c)
    */
-
-   int index = ( hall_to_pos[hall]+2 ) % 6;
-
-   switch(index) {
-      case 0:
-	*a = 0;	*b = torquePWM;	*c = -torquePWM; // b->c
-	break;
-      case 1:
-	*a = -torquePWM; *b = torquePWM; *c = 0; // b->a
-	break;
-      case 2:
-	*a = -torquePWM; *b = 0; *c = torquePWM; // c->a
-	break;
-      case 3:
-	*a = 0;	*b = -torquePWM; *c = torquePWM; // c->b
-	break;
-      case 4:
-	*a = torquePWM;	*b = -torquePWM; *c = 0; // a->b
-	break;
-      case 5:
-	*a = torquePWM;	*b = 0;	*c = -torquePWM; // a->c
-	break;
-      default:
-	*a = 0; *b = torquePWM;	*c = -torquePWM;
-   }
-}
-
-// ===========================================================================
-void hall_to_action_2(uint8_t hall, int torquePWM, int *a, int *b, int *c)
-{
-   /*     HcHbHa     Action
-        =========================
-        001          (c->a)
-        011          (c->b)
-        010          (a->b)
-        110          (a->c)
-        100          (b->c)
-        101          (b->a)
-   */
-   switch(hall) {
-      case 4:
-	*a = 0;	*b = torquePWM;	*c = -torquePWM; // b->c
-	break;
-      case 2:
-	*a = torquePWM;	*b = -torquePWM; *c = 0; // a->b
-	break;
-      case 3:
-	*a = 0;	*b = -torquePWM; *c = torquePWM; // c->b
-	break;
-      case 6:
-	*a = torquePWM;	*b = 0;	*c = -torquePWM; // a->c
-	break;
-      case 5:
-	*a = -torquePWM; *b = torquePWM; *c = 0; // b->a
-	break;
-      case 1:
-	*a = -torquePWM; *b = 0; *c = torquePWM; // c->a
-      default:
-	*a = torquePWM;	*b = -torquePWM; *c = 0;
-   }
-}
-
-// ================================================================
-inline void blockPWM(int pwm, int pos, int *u, int *v, int *w) {
-  switch(pos) {
+  switch (action) {
     case 0:
-      *u = 0;
-      *v = pwm;
-      *w = -pwm;
-      break;
+      *u = 0; *v = pwm; *w = -pwm; break; // b->c
     case 1:
-      *u = -pwm;
-      *v = pwm;
-      *w = 0;
-      break;
+      *u = -pwm; *v = pwm; *w = 0; break; // b->a
     case 2:
-      *u = -pwm;
-      *v = 0;
-      *w = pwm;
-      break;
+      *u = -pwm; *v = 0; *w = pwm; break; // c->a
     case 3:
-      *u = 0;
-      *v = -pwm;
-      *w = pwm;
-      break;
+      *u = 0; *v = -pwm; *w = pwm; break; // c->b
     case 4:
-      *u = pwm;
-      *v = -pwm;
-      *w = 0;
-      break;
+      *u = pwm; *v = -pwm; *w = 0; break; // a->b
     case 5:
-      *u = pwm;
-      *v = 0;
-      *w = -pwm;
-      break;
+      *u = pwm; *v = 0; *w = -pwm; break; // a->c
     default:
-      *u = 0;
-      *v = 0;
-      *w = 0;
+      *u = 0; *v = 0; *w = 0;
   }
+}
+
+// ===========================================================================
+void hall_pos_to_PWM(uint8_t hall_pos, int pwm, int *u, int *v, int *w)
+{
+   /*   H_cba		H_pos	Action	PWM
+        =======================================
+        100    		0      	2 	(c->a)
+        101    		1      	3 	(c->b)
+        001    		2      	4 	(a->b)
+        011    		3      	5 	(a->c)
+        010    		4      	0 	(b->c)
+        110    		5      	1 	(b->a)
+   */
+   int action = ( hall_pos + 2 ) % 6;
+   action_to_PWM(pwm, action, u, v, w);
+}
+
+
+void angle_to_PWM(int angle, int pwm, int *u, int *v, int *w)
+{
+    // convert angle to continus sin waves for u, v, w
+}
+
+void rotation_to_PWM(int rotation, int pwm, int *u, int *v, int *w)
+{
+    // convert roations to x*cycle + angles
+    // then call continus sin waves for u, v, w
 }
 
 // ======================================================
-void Trap_BLDC_Step(uint8_t simulated_hall_pos)
+void BLDC_Step(int x)
 {
-
-//  int last_pos = 0;
-//  int timer = 0;
-//  const int max_time = PWM_FREQ / 10;
-//  volatile int vel = 0;
-
-//  uint32_t buzzerFreq = 0;
-//  uint32_t buzzerPattern = 0;
-
   if (State.Status != READY) return;
 
   int ur, vr, wr;
-  volatile int posr = 0;
-  volatile int weakr = 0;
-  volatile int pwmr = 0;
+  int h_pos;
 
-  pwmr = State.TorquePWM_desired;
+  //update PWM channels based on input position
+  //  blockPWM(pwmr, posr, &ur, &vr, &wr);	// old way to do things
 
-  // for simulation
-  if (simulated_hall_pos>=0 && simulated_hall_pos<=6) {
-	posr = simulated_hall_pos;
-  } else {
-	posr = (hall_to_pos[State.H_POS_now] + 2) % 6; // a bit strange
+  if (State.InputType == H_VAL) {
+	h_pos = hallValue_to_hallPos[State.H_VAL_now];
+	hall_pos_to_PWM(h_pos, State.TorquePWM_desired, &ur, &vr, &wr);
+  } else if (State.InputType == H_POS) {
+	hall_pos_to_PWM(x, State.TorquePWM_desired, &ur, &vr, &wr);
+  } else if (State.InputType == ANGLE) {
+	angle_to_PWM(x, State.TorquePWM_desired, &ur, &vr, &wr);
+  } else if (State.InputType == ROTATION) {
+	rotation_to_PWM(x, State.TorquePWM_desired, &ur, &vr, &wr);
   }
 
+
+  //  int last_pos = 0;
+  //  int timer = 0;
+  //  const int max_time = PWM_FREQ / 10;
+  //  volatile int vel = 0;
+
+  //  uint32_t buzzerFreq = 0;
+  //  uint32_t buzzerPattern = 0;
 
   // uint8_t buzz(uint16_t *notes, uint32_t len){
     // static uint32_t counter = 0;
@@ -239,16 +134,15 @@ void Trap_BLDC_Step(uint8_t simulated_hall_pos)
       HAL_GPIO_WritePin(BUZZER_PORT, BUZZER_PIN, 0);
   }*/
 
-  //update PWM channels based on position
-//  blockPWM(pwmr, posr, &ur, &vr, &wr);	// old way to do things
-
-  hall_to_action(State.H_POS_now, pwmr, &ur, &vr, &wr);
+  volatile int weakr = 0;
+  volatile int pwmr = State.TorquePWM_desired;
+  volatile int posr = hallValue_to_hallPos[State.H_VAL_now];
 
   int weakur, weakvr, weakwr;
   if (pwmr > 0) {	// forward
-    blockPWM(weakr, (posr+5) % 6, &weakur, &weakvr, &weakwr);
+    action_to_PWM(weakr, (posr+5) % 6, &weakur, &weakvr, &weakwr);
   } else {		// backword
-    blockPWM(-weakr, (posr+1) % 6, &weakur, &weakvr, &weakwr);
+    action_to_PWM(-weakr, (posr+1) % 6, &weakur, &weakvr, &weakwr);
   }
   ur += weakur;
   vr += weakvr;
@@ -362,4 +256,32 @@ void Motor_Timer_Start(void)
 
   //TIM1->CCR1 = 1000;	// make sure PWM1 is active to trigger ADC1
 }
+
+
+// ===============================================================================================
+// WHEN I do this,
+// the motor stays in a position with a big noise
+// the Hall_value oscilate back_forth very fast,
+// when I manually rotate the motor, it seems break everywhere, reluctent to move,
+// when left in a position,  it stays there with noise.
+inline void test_stay_action(uint8_t action, int pwm, int *a, int *b, int *c)
+{
+   switch ( action ) {
+      case 0:
+	*a = -pwm/2; *b = pwm; *c = -pwm/2; break; // b->c,a
+      case 1:
+	*a = -pwm/2; *b = pwm; *c = -pwm/2; break; // b->a,c
+      case 2:
+	*a = -pwm/2; *b = -pwm/2; *c = pwm; break; // c->a,b
+      case 3:
+	*a = -pwm/2; *b = -pwm/2; *c = pwm; break; // c->b,a
+      case 4:
+	*a = pwm; *b = -pwm/2; *c = -pwm/2; break; // a->b,c
+      case 5:
+	*a = pwm; *b = -pwm/2; *c = -pwm/2; break; // a->c,b
+      default:
+	*a = 0; *b = 0; *c = 0;
+   }
+}
+
 
