@@ -1,23 +1,26 @@
 
 #include "stm32f1xx_hal.h"
+#include "math.h"
 #include "defines.h"
-#include "config.h"
 #include "sysinit.h"
+#include "sense.h"
 #include "bldc.h"
 
-const uint8_t hallValue_to_hallPos[8] = { 0, 0, 2, 1, 4, 5, 3, 0 };
+//
+// globle variables
+//
 
 // ===================================================================
 inline void action_to_PWM(int pwm, int action, int *u, int *v, int *w)
 {
-   /*   Action	PWM
-        ===============
-        0      (b->c)
-        1      (b->a)
-        2      (c->a)
-        3      (c->b)
-        4      (a->b)
-        5      (a->c)
+      /*      Action	PWM
+        `=====================
+   	     	0	(b->c)
+        	1	(b->a)
+        	2	(c->a)
+        	3	(c->b)
+        	4	(a->b)
+        	5	(a->c)
    */
   switch (action) {
     case 0:
@@ -40,7 +43,7 @@ inline void action_to_PWM(int pwm, int action, int *u, int *v, int *w)
 // ===========================================================================
 void hall_pos_to_PWM(uint8_t hall_pos, int pwm, int *u, int *v, int *w)
 {
-   /*   H_cba		H_pos	Action	PWM
+   /*   H_cba	     halH_pos	Action	PWM
         =======================================
         100    		0      	2 	(c->a)
         101    		1      	3 	(c->b)
@@ -56,12 +59,22 @@ void hall_pos_to_PWM(uint8_t hall_pos, int pwm, int *u, int *v, int *w)
 
 void angle_to_PWM(int angle, int pwm, int *u, int *v, int *w)
 {
-    // convert angle to continus sin waves for u, v, w
+    int SinA = angle;
+    int SinB = SinA + 120;
+    int SinC = SinB + 120;
+
+    SinA = SinA % 360;
+    SinB = SinB % 360;
+    SinC = SinC % 360;
+
+    *u = pwm * sin( DEG(SinA) );
+    *v = pwm * sin( DEG(SinB) );
+    *w = pwm * sin( DEG(SinC) );
 }
 
 void rotation_to_PWM(int rotation, int pwm, int *u, int *v, int *w)
 {
-    // convert roations to x*cycle + angles
+    // convert roations to x cycle + angles
     // then call continus sin waves for u, v, w
 }
 
@@ -71,18 +84,13 @@ void BLDC_Step(int x)
     if (State.Status != READY) return;
 
     int ur, vr, wr;
-    int h_pos;
 
-    // update PWM channels based on input type and x
-    if (x<0) { // x indicates to use State.H_VAL_now
-	h_pos = hallValue_to_hallPos[State.H_VAL_now];
-	hall_pos_to_PWM(h_pos, State.TorquePWM_desired, &ur, &vr, &wr);
-    } else { // x is input value
+    if (x == -1) {
+	// use State.POS_now
+	hall_pos_to_PWM(State.POS_now, State.TorquePWM_desired, &ur, &vr, &wr);
+    } else {
+	// use x as the input value
 	switch (State.InputType) {
-	   case H_VAL: // x is h_value
-		h_pos = hallValue_to_hallPos[x];
-	        hall_pos_to_PWM(h_pos, State.TorquePWM_desired, &ur, &vr, &wr);
-		break;
 	   case H_POS: // x is h_pos
 		hall_pos_to_PWM(x, State.TorquePWM_desired, &ur, &vr, &wr);
 		break;
@@ -145,19 +153,22 @@ void BLDC_Step(int x)
     //
     // implementing weakening
     //
-    int weakur, weakvr, weakwr;
-    volatile int weakr = 0;
-    volatile int pwmr = State.TorquePWM_desired;
-    volatile int posr = hallValue_to_hallPos[State.H_VAL_now];
+    int weaku, weakv, weakw;
+    volatile int weak = 0;
+    volatile int pwm = 0;
+    volatile int pos = 0;
 
-    if (pwmr > 0) {	// forward
-       action_to_PWM(weakr, (posr+5) % 6, &weakur, &weakvr, &weakwr);
+    pos = State.POS_now;
+    pwm = State.TorquePWM_desired;
+
+    if (pwm > 0) {	// forward
+       action_to_PWM(weak, (pos+5) % 6, &weaku, &weakv, &weakw);
     } else {		// backword
-       action_to_PWM(-weakr, (posr+1) % 6, &weakur, &weakvr, &weakwr);
+       action_to_PWM(-weak, (pos+1) % 6, &weaku, &weakv, &weakw);
     }
-    ur += weakur;
-    vr += weakvr;
-    wr += weakwr;
+    ur += weaku;
+    vr += weakv;
+    wr += weakw;
 
     //
     // Executing PWM: If Ix==0; then turn off PWMx completely
@@ -291,5 +302,4 @@ inline void test_stay_action(uint8_t action, int pwm, int *a, int *b, int *c)
 	*a = 0; *b = 0; *c = 0;
    }
 }
-
 

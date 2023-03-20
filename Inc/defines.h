@@ -28,18 +28,27 @@ typedef enum { READY, DONE } Status_t;
 typedef enum { H_VAL, H_POS, ANGLE, ROTATION } Input_Type_t;
 
 typedef struct {
+  uint16_t Vref;
+  uint16_t Va;
+  uint16_t Vb;
+  uint16_t Vc;
+  uint16_t Iout;
+  uint16_t temp;
+} adc_buf_t;
+
+typedef struct {
   uint32_t 	Ia;
   uint32_t 	Ib;
   uint32_t 	Ic;
   int 		TorquePWM_desired;
   uint8_t 	H_VAL_now;
-  uint16_t 	POS_next;
+  uint16_t 	POS_now;
   uint16_t 	POS_target;
   uint16_t 	SensorCalibCounter;
   Status_t 	Status;
   Input_Type_t 	InputType;
+  adc_buf_t	adc_buffer;
 } State_t;
-
 
 
 #define HALL_U_PIN GPIO_PIN_6
@@ -105,7 +114,10 @@ typedef struct {
 #define CHARGER_PORT GPIOA
 */
 
-#define PWM_RES 64000000 / 2 / PWM_FREQ // = 2000
+#define PWM_FREQ	16000   		// PWM frequency in Hz
+#define PWM_RES 	64000000/2/PWM_FREQ 	// = 2000
+
+#define DEAD_TIME	32         // PWM deadtime
 
 #define DELAY_TIM_FREQUENCY_US 1000000
 
@@ -131,18 +143,5 @@ typedef struct {
 #define MAX(a, b) (((a) > (b)) ? (a) : (b))
 #define MIN3(a, b, c) MIN(a, MIN(b, c))
 #define MAX3(a, b, c) MAX(a, MAX(b, c))
-
-typedef struct {
-  uint16_t rr1;
-  uint16_t rr2;
-  uint16_t rl1;
-  uint16_t rl2;
-  uint16_t dcr;
-  uint16_t dcl;
-  uint16_t batt1;
-  uint16_t l_tx2;
-  uint16_t temp;
-  uint16_t l_rx2;
-} adc_buf_t;
 
 

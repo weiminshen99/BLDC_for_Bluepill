@@ -18,7 +18,6 @@
 */
 
 #include "defines.h"
-#include "config.h"
 #include "sysinit.h"
 #include "buzzer.h"
 #include "sense.h"
@@ -28,6 +27,10 @@
 // globle variables
 //
 volatile State_t State = {0};	// shared everywhere
+
+//
+// main function
+//
 
 int main(void)
 {
@@ -42,22 +45,23 @@ int main(void)
   Motor_Timer_Start();
 
   // State_Init()
-  State.TorquePWM_desired = 300;	// 300 normal, -300 goes the other direction
+  State.TorquePWM_desired = 600;	// 300 normal, -300 goes the other direction
   State.SensorCalibCounter = 0;		// 1000
   State.Ia = 2000;			// 2000
   State.Ib = 2000;			// 2000
-  State.InputType = H_VAL;
+  State.POS_target  = 3;		// H_POS sequence [0,1,2,3,4,5]
+
+  uint8_t hallValue_sequence[6] = {1,3,2,6,4,5};
 
   int main_loop_counter = 0;
   int timeout = 0;
 
-  int simulation = 1;
-
-  int h_value_sequence[6] = {1,3,2,6,4,5};
+  int simulation = 0;		// ==0 for demo of sensor-driven
+  State.InputType = ANGLE;	// Can be H_POS, ANGLE, or ROTATION, H_VAL
 
   while (1)
   {
-	Buzzer_Volume_Set(State.Ia);
+	Buzzer_Volume_Set(State.adc_buffer.Iout);
 
 	if (simulation==0) {
 	    if (State.Status == READY) { // wait for ADC1 did its job
@@ -66,14 +70,16 @@ int main(void)
         } else { // call BLDC_Step with the simulated input
 	    HAL_Delay(10); // simulate the time for ADC1 reading
 	    if (State.InputType == H_VAL) {
-		BLDC_Step(h_value_sequence[main_loop_counter%6]);
+		BLDC_Step(hallValue_sequence[main_loop_counter%6]);
 	    } else if (State.InputType == H_POS) {
 		BLDC_Step(main_loop_counter%6);
 	    } else if (State.InputType == ANGLE) {
-		BLDC_Step(main_loop_counter%360);
+		//BLDC_Step(main_loop_counter%360);
+		BLDC_Step(State.adc_buffer.Iout % 360);
 	    } else {
 		BLDC_Step(main_loop_counter%3600);
 	    }
+	    //HAL_Delay(100); // can we do it like step motor?
 	}
     	main_loop_counter += 1;
 	//HAL_GPIO_TogglePin(LED_PORT, LED_PIN);
@@ -174,62 +180,4 @@ void hall_to_PWM(int pwm, int hall_a, int hall_b, int hall_c, int *u, int *v, in
 
   enable = 1;  // enable motors, see bldc.c
 
-  while(0) {
-
-    pwmr = 900;	// speed
-
-    // read hall sensors
-    //hall_ur = !(RIGHT_HALL_U_PORT->IDR & RIGHT_HALL_U_PIN);
-    //hall_vr = !(RIGHT_HALL_V_PORT->IDR & RIGHT_HALL_V_PIN);
-    //hall_wr = !(RIGHT_HALL_W_PORT->IDR & RIGHT_HALL_W_PIN);
-
-    get_next_hall_readings(main_loop_counter%6, &hall_ur, &hall_vr, &hall_wr);
-
-    //hall_ur=0; hall_vr=1; hall_wr=0;
-
-    hall_to_PWM(pwmr, hall_ur, hall_vr, hall_wr, &ur, &vr, &wr);
-
-    
-    RIGHT_TIM->RIGHT_TIM_U = CLAMP(ur + pwm_res/2, 10, pwm_res-10);
-    RIGHT_TIM->RIGHT_TIM_V = CLAMP(vr + pwm_res/2, 10, pwm_res-10);
-    RIGHT_TIM->RIGHT_TIM_W = CLAMP(wr + pwm_res/2, 10, pwm_res-10);
-    
-
-    if (ur != 0) {
-    	HAL_TIM_PWM_Start(&htim_right, TIM_CHANNEL_1);
-    	HAL_TIMEx_PWMN_Start(&htim_right, TIM_CHANNEL_1);
-	RIGHT_TIM->RIGHT_TIM_U = CLAMP(1000+ur, 10, 2000);
-    } else {
-    	HAL_TIM_PWM_Stop(&htim_right, TIM_CHANNEL_1);
-    	HAL_TIMEx_PWMN_Stop(&htim_right, TIM_CHANNEL_1);
-    }
-
-    if (vr != 0) {
-    	HAL_TIM_PWM_Start(&htim_right, TIM_CHANNEL_2);
-    	HAL_TIMEx_PWMN_Start(&htim_right, TIM_CHANNEL_2);
-	RIGHT_TIM->RIGHT_TIM_V = CLAMP(1000+vr, 10, 2000);
-    } else {
-    	HAL_TIM_PWM_Stop(&htim_right, TIM_CHANNEL_2);
-    	HAL_TIMEx_PWMN_Stop(&htim_right, TIM_CHANNEL_2);
-    }
-
-    if (wr != 0) {
-    	HAL_TIM_PWM_Start(&htim_right, TIM_CHANNEL_3);
-    	HAL_TIMEx_PWMN_Start(&htim_right, TIM_CHANNEL_3);
-	RIGHT_TIM->RIGHT_TIM_W = CLAMP(1000+wr, 10, 2000);
-    } else {
-    	HAL_TIM_PWM_Stop(&htim_right, TIM_CHANNEL_3);
-    	HAL_TIMEx_PWMN_Stop(&htim_right, TIM_CHANNEL_3);
-    }
-
-    HAL_Delay(20); // the 10ms duration for the current PWM state
-
-
-    timeout++;
-
-    if (main_loop_counter % 100 == 0) {
-	//HAL_GPIO_TogglePin(LED_PORT, LED_PIN);
-    }
-  }
-}
 */

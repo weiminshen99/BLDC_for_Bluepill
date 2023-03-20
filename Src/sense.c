@@ -8,10 +8,11 @@
 //
 
 #include "defines.h"
-#include "sense.h"
 #include "buzzer.h"
 #include "bldc.h"
+#include "sense.h"
 
+// ==================================================================================
 void Sensors_Trigger_Start(uint8_t trigger)
 {
     ADC1_Init();
@@ -63,6 +64,40 @@ void Emergency_Shut_Down(void)
 
 // ============================================================
 //
+#ifndef SENSE_H_
+#define SENSE_H_
+
+#include "stm32f1xx_hal.h"
+#include "defines.h"
+#include "sysinit.h"
+
+ADC_HandleTypeDef hadc1;
+DMA_HandleTypeDef hdma_adc1;
+TIM_HandleTypeDef htim3;
+
+extern volatile State_t State;
+
+//volatile uint16_t adc_buffer[5];
+
+void ADC1_Init(void);
+void DMA1_Init(void);
+void TIM3_Init(void);
+void HALL_Init(void);
+
+void Sensors_Trigger_Start(uint8_t trigger);
+
+void DMA1_Channel1_IRQHandler(void);
+
+void ADC1_2_IRQHandler(void);
+
+void Emergency_Shut_Down(void);
+int  HALL_Sense();
+void Process_Raw_Sensor_Data(void);
+
+#endif
+
+
+
 // Assume Ia+Ib+Ic=0; you can compute q if you know the other two
 //
 inline int blockPhaseCurrent(int pos, int u, int v)
@@ -78,22 +113,29 @@ inline int blockPhaseCurrent(int pos, int u, int v)
    }
 }
 
+
+const uint8_t map_h_val_to_h_pos[8] = {0,0,2,1,4,5,3,6};
+
+
 // ==========================================================================
 void Process_Raw_Sensor_Data()
 {
     if (State.SensorCalibCounter > 0) {  // calibrate ADC offsets
       State.SensorCalibCounter--;
-      State.Ia = (adc_buffer[0] + State.Ia) / 2;
-      State.Ib = (adc_buffer[1] + State.Ib) / 2;
+      State.Ia = (State.adc_buffer.Va + State.Ia) / 2;
+      State.Ib = (State.adc_buffer.Vb + State.Ib) / 2;
       State.Status = DONE; // continue calabooration
       return;
     }
 
     // Fill in the information for State
     State.H_VAL_now = HALL_Sense();
-    State.Ia = adc_buffer[0]; // (State.Ia + adc_buffer[0])/2;
-    State.Ib = adc_buffer[1]; // (State.Ib + adc_buffer[1])/2;
+    State.POS_now = map_h_val_to_h_pos[State.H_VAL_now];
+    State.Ia = State.adc_buffer.Va; // (State.Ia + adc_buffer[0])/2;
+    State.Ib = State.adc_buffer.Vb; // (State.Ib + adc_buffer[1])/2;
     //State.Ic = computerPhaseC(State.Ia, State.Ib);
+
+    //State.TorquePWM_desired = (State.adc_buffer.Iout)%300;
 
     State.Status = READY;
 
@@ -165,10 +207,10 @@ void ADC1_Init(void)
   HAL_ADC_Init(&hadc1);
 
   // Configure the ADC multi-mode
-/*  ADC_MultiModeTypeDef multimode;
+  ADC_MultiModeTypeDef multimode;
   multimode.Mode = ADC_DUALMODE_REGSIMULT;
   HAL_ADCEx_MultiModeConfigChannel(&hadc1, &multimode);
-*/
+
   ADC_ChannelConfTypeDef sConfig;
   sConfig.SamplingTime = ADC_SAMPLETIME_7CYCLES_5;
 
@@ -244,7 +286,7 @@ void DMA1_Init(void)
 
     __HAL_DMA_ENABLE(&hdma_adc1);
 
-    HAL_DMA_Start_IT(&hdma_adc1, (uint32_t) &(ADC1->DR), (uint32_t) &(adc_buffer), 5);
+    HAL_DMA_Start_IT(&hdma_adc1, (uint32_t) &(ADC1->DR), (uint32_t) &(State.adc_buffer), 5);
 
     // enable interrupt of DMA1_Channel1
     HAL_NVIC_SetPriority(DMA1_Channel1_IRQn, 0, 0);
@@ -258,7 +300,7 @@ void ADC1_2_IRQHandler(void)
     HAL_ADC_IRQHandler(&hadc1);
     __HAL_ADC_CLEAR_FLAG(&hadc1, ADC_FLAG_EOC); // clear this interrupt flag
 
-    adc_buffer[0] = HAL_ADC_GetValue(&hadc1);	// get data from ADC1 to AD_RES
+    State.adc_buffer.Vref = HAL_ADC_GetValue(&hadc1);	// get data from ADC1 to AD_RES
     //HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);     // show led here
 }
 
