@@ -51,7 +51,7 @@ you apply the motor action as follows:
 	===================================================================
         P0				+A2		-A2
         P2				-A4			+A4
-        P1			-A3	+A3
+        P1		-A3	+A3
         P4						+A0	-A0
         P5		+A1			-A1
         P3					-A5	+A5
