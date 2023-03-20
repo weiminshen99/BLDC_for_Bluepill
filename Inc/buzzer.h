@@ -3,7 +3,6 @@
 
 #include "sysinit.h"
 #include "defines.h"
-#include "config.h"
 
 TIM_HandleTypeDef htim2;
 
