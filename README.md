@@ -54,7 +54,7 @@ you apply the motor action as follows:
         P1		-A3	+A3
         P4						+A0	-A0
         P5		+A1			-A1
-        P3					-A5	+A5
+        P3			-A5		+A5
 	====================================================================
 
 So a basic BLDC controller simply looks up a desired action to produce the desired movement from 
