@@ -41,6 +41,7 @@ typedef struct {
   uint32_t 	Ib;
   uint32_t 	Ic;
   int 		TorquePWM_desired;
+  int 		PWM_now;
   uint8_t 	H_VAL_now;
   uint16_t 	POS_now;
   uint16_t 	POS_target;

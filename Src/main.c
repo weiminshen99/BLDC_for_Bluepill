@@ -45,7 +45,8 @@ int main(void)
   Motor_Timer_Start();
 
   // State_Init()
-  State.TorquePWM_desired = 600;	// 300 normal, -300 goes the other direction
+  State.TorquePWM_desired = 300;	// [-1000, 1000]
+  State.PWM_now = State.TorquePWM_desired;	// this may change by BLDC_step
   State.SensorCalibCounter = 0;		// 1000
   State.Ia = 2000;			// 2000
   State.Ib = 2000;			// 2000

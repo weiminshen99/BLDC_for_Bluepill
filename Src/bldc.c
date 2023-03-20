@@ -86,19 +86,32 @@ void BLDC_Step(int x)
     int ur, vr, wr;
 
     if (x == -1) {
+
 	// use State.POS_now
-	hall_pos_to_PWM(State.POS_now, State.TorquePWM_desired, &ur, &vr, &wr);
+	if (State.POS_target == State.POS_now) {
+	    State.PWM_now = 0; // stop
+	}
+	else if (State.POS_now < State.POS_target && State.PWM_now <= 0) {
+	    State.PWM_now = State.TorquePWM_desired; // change dir
+	}
+	else if (State.POS_now > State.POS_target && State.PWM_now >= 0) {
+	    State.PWM_now = -State.TorquePWM_desired; // change dir
+ 	}
+
+	hall_pos_to_PWM(State.POS_now, State.PWM_now, &ur, &vr, &wr);
+
     } else {
+
 	// use x as the input value
 	switch (State.InputType) {
 	   case H_POS: // x is h_pos
-		hall_pos_to_PWM(x, State.TorquePWM_desired, &ur, &vr, &wr);
+		hall_pos_to_PWM(x, State.PWM_now, &ur, &vr, &wr);
 		break;
 	   case ANGLE: // x is angle [0,360]
-		angle_to_PWM(x, State.TorquePWM_desired, &ur, &vr, &wr);
+		angle_to_PWM(x, State.PWM_now, &ur, &vr, &wr);
 		break;
     	   case ROTATION: // x is a rotation R.A
-		rotation_to_PWM(x, State.TorquePWM_desired, &ur, &vr, &wr);
+		rotation_to_PWM(x, State.PWM_now, &ur, &vr, &wr);
 		break;
 	   default: break;
 	}
@@ -159,7 +172,7 @@ void BLDC_Step(int x)
     volatile int pos = 0;
 
     pos = State.POS_now;
-    pwm = State.TorquePWM_desired;
+    pwm = State.PWM_now;
 
     if (pwm > 0) {	// forward
        action_to_PWM(weak, (pos+5) % 6, &weaku, &weakv, &weakw);
