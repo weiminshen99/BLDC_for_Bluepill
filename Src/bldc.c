@@ -40,6 +40,32 @@ inline void action_to_PWM(int pwm, int action, int *u, int *v, int *w)
   }
 }
 
+// ===============================================================================================
+// WHEN I do this,
+// the motor stays in a position with a big noise
+// the Hall_value oscilate back_forth very fast,
+// when I manually rotate the motor, it seems break everywhere, reluctent to move,
+// when left in a position,  it stays there with noise.
+inline void action_to_PWM_test(uint8_t action, int pwm, int *a, int *b, int *c)
+{
+   switch ( action ) {
+      case 0:
+	*a = -pwm/3; *b = pwm; *c = -pwm*2/3; break; // b->c,,a
+      case 1:
+	*a = -pwm*2/3; *b = pwm; *c = -pwm/3; break; // b->a,,c
+      case 2:
+	*a = -pwm*2/3; *b = -pwm/3; *c = pwm; break; // c->a,,b
+      case 3:
+	*a = -pwm/3; *b = -pwm*2/3; *c = pwm; break; // c->b,,a
+      case 4:
+	*a = pwm; *b = -pwm*2/3; *c = -pwm/3; break; // a->b,,c
+      case 5:
+	*a = pwm; *b = -pwm/3; *c = -pwm*2/3; break; // a->c,,b
+      default:
+	*a = 0; *b = 0; *c = 0;
+   }
+}
+
 // ===========================================================================
 void hall_pos_to_PWM(uint8_t hall_pos, int pwm, int *u, int *v, int *w)
 {
@@ -87,18 +113,18 @@ void BLDC_Step(int x)
 
     if (x == -1) {
 
-	// use State.POS_now
-	if (State.POS_target == State.POS_now) {
+	// use State.H_POS_now
+	if (State.ANGLE_target == State.ANGLE_now) {
 	    State.PWM_now = 0; // stop
 	}
-	else if (State.POS_now < State.POS_target && State.PWM_now <= 0) {
-	    State.PWM_now = State.TorquePWM_desired; // change dir
+	else if (State.ANGLE_now < State.ANGLE_target && State.PWM_now <= 0) {
+	    State.PWM_now =  State.PWM_desired; // change dir
 	}
-	else if (State.POS_now > State.POS_target && State.PWM_now >= 0) {
-	    State.PWM_now = -State.TorquePWM_desired; // change dir
+	else if (State.ANGLE_now > State.ANGLE_target && State.PWM_now >= 0) {
+	    State.PWM_now = -State.PWM_desired; // change dir
  	}
 
-	hall_pos_to_PWM(State.POS_now, State.PWM_now, &ur, &vr, &wr);
+	hall_pos_to_PWM(State.H_POS_now, State.PWM_now, &ur, &vr, &wr);
 
     } else {
 
@@ -171,7 +197,7 @@ void BLDC_Step(int x)
     volatile int pwm = 0;
     volatile int pos = 0;
 
-    pos = State.POS_now;
+    pos = State.H_POS_now;
     pwm = State.PWM_now;
 
     if (pwm > 0) {	// forward
@@ -289,30 +315,4 @@ void Motor_Timer_Start(void)
   //TIM1->CCR1 = 1000;	// make sure PWM1 is active to trigger ADC1
 }
 
-
-// ===============================================================================================
-// WHEN I do this,
-// the motor stays in a position with a big noise
-// the Hall_value oscilate back_forth very fast,
-// when I manually rotate the motor, it seems break everywhere, reluctent to move,
-// when left in a position,  it stays there with noise.
-inline void test_stay_action(uint8_t action, int pwm, int *a, int *b, int *c)
-{
-   switch ( action ) {
-      case 0:
-	*a = -pwm/2; *b = pwm; *c = -pwm/2; break; // b->c,a
-      case 1:
-	*a = -pwm/2; *b = pwm; *c = -pwm/2; break; // b->a,c
-      case 2:
-	*a = -pwm/2; *b = -pwm/2; *c = pwm; break; // c->a,b
-      case 3:
-	*a = -pwm/2; *b = -pwm/2; *c = pwm; break; // c->b,a
-      case 4:
-	*a = pwm; *b = -pwm/2; *c = -pwm/2; break; // a->b,c
-      case 5:
-	*a = pwm; *b = -pwm/2; *c = -pwm/2; break; // a->c,b
-      default:
-	*a = 0; *b = 0; *c = 0;
-   }
-}
 

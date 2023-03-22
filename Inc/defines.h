@@ -28,28 +28,30 @@ typedef enum { READY, DONE } Status_t;
 typedef enum { H_VAL, H_POS, ANGLE, ROTATION } Input_Type_t;
 
 typedef struct {
-  uint16_t Vref;
-  uint16_t Va;
-  uint16_t Vb;
-  uint16_t Vc;
-  uint16_t Iout;
-  uint16_t temp;
+  uint32_t Va;
+  uint32_t Vb;
+  uint32_t Iout;
+  //uint32_t Vref;
+  //uint32_t temp;
 } adc_buf_t;
 
 typedef struct {
-  uint32_t 	Ia;
-  uint32_t 	Ib;
-  uint32_t 	Ic;
-  int 		TorquePWM_desired;
-  int 		PWM_now;
-  uint8_t 	H_VAL_now;
-  uint16_t 	POS_now;
-  uint16_t 	POS_target;
-  uint16_t 	SensorCalibCounter;
   Status_t 	Status;
   Input_Type_t 	InputType;
-  adc_buf_t	adc_buffer;
+  uint16_t 	Ia;
+  int 		PWM_desired;
+  int 		PWM_now;
+  uint8_t 	H_POS_now;
+  uint8_t 	H_POS_last;
+  int		H_Sector_Counter;	// Each H_Sector contains 6 H_POS
+  int		ANGLE_now;
+  int		ANGLE_target;
+  uint16_t 	SensorCalibCounter;
 } State_t;
+
+
+#define MOTOR_H_STEP_SIZE 	5	// each H_STEP is 5 degree
+#define MOTOR_H_SECTOR_SIZE	30	// each H_SECTOR is 30 degree (i.e., 6 H_STEPs)
 
 
 #define HALL_U_PIN GPIO_PIN_6

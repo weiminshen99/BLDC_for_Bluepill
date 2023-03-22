@@ -28,6 +28,8 @@
 //
 volatile State_t State = {0};	// shared everywhere
 
+volatile int H_Sector = 0;
+
 //
 // main function
 //
@@ -45,12 +47,11 @@ int main(void)
   Motor_Timer_Start();
 
   // State_Init()
-  State.TorquePWM_desired = 300;	// [-1000, 1000]
-  State.PWM_now = State.TorquePWM_desired;	// this may change by BLDC_step
+  State.PWM_desired = 250;		// [-1000, 1000]
+  State.PWM_now = State.PWM_desired;	// this may change by BLDC_step
   State.SensorCalibCounter = 0;		// 1000
   State.Ia = 2000;			// 2000
-  State.Ib = 2000;			// 2000
-  State.POS_target  = 3;		// H_POS sequence [0,1,2,3,4,5]
+  State.ANGLE_target = 1200;
 
   uint8_t hallValue_sequence[6] = {1,3,2,6,4,5};
 
@@ -58,11 +59,14 @@ int main(void)
   int timeout = 0;
 
   int simulation = 0;		// ==0 for demo of sensor-driven
-  State.InputType = ANGLE;	// Can be H_POS, ANGLE, or ROTATION, H_VAL
+  State.InputType = H_POS;	// Can be H_POS, ANGLE, or ROTATION, H_VAL
+
+
+  HAL_GPIO_WritePin(LED_PORT, LED_PIN, 1); // turn off LED
 
   while (1)
   {
-	Buzzer_Volume_Set(State.adc_buffer.Iout);
+	Buzzer_Volume_Set(State.Ia);
 
 	if (simulation==0) {
 	    if (State.Status == READY) { // wait for ADC1 did its job
@@ -76,7 +80,7 @@ int main(void)
 		BLDC_Step(main_loop_counter%6);
 	    } else if (State.InputType == ANGLE) {
 		//BLDC_Step(main_loop_counter%360);
-		BLDC_Step(State.adc_buffer.Iout % 360);
+		BLDC_Step(State.Ia % 360);
 	    } else {
 		BLDC_Step(main_loop_counter%3600);
 	    }

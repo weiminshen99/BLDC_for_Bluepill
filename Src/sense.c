@@ -12,6 +12,8 @@
 #include "bldc.h"
 #include "sense.h"
 
+extern int H_Sector;
+
 // ==================================================================================
 void Sensors_Trigger_Start(uint8_t trigger)
 {
@@ -52,7 +54,6 @@ void DMA1_Channel1_IRQHandler(void)
 
     Process_Raw_Sensor_Data();
 
-    State.Status = READY;
 }
 
 // ==============================================================
@@ -60,43 +61,6 @@ void Emergency_Shut_Down(void)
 {
 
 }
-
-
-// ============================================================
-//
-#ifndef SENSE_H_
-#define SENSE_H_
-
-#include "stm32f1xx_hal.h"
-#include "defines.h"
-#include "sysinit.h"
-
-ADC_HandleTypeDef hadc1;
-DMA_HandleTypeDef hdma_adc1;
-TIM_HandleTypeDef htim3;
-
-extern volatile State_t State;
-
-//volatile uint16_t adc_buffer[5];
-
-void ADC1_Init(void);
-void DMA1_Init(void);
-void TIM3_Init(void);
-void HALL_Init(void);
-
-void Sensors_Trigger_Start(uint8_t trigger);
-
-void DMA1_Channel1_IRQHandler(void);
-
-void ADC1_2_IRQHandler(void);
-
-void Emergency_Shut_Down(void);
-int  HALL_Sense();
-void Process_Raw_Sensor_Data(void);
-
-#endif
-
-
 
 // Assume Ia+Ib+Ic=0; you can compute q if you know the other two
 //
@@ -116,26 +80,40 @@ inline int blockPhaseCurrent(int pos, int u, int v)
 
 const uint8_t map_h_val_to_h_pos[8] = {0,0,2,1,4,5,3,6};
 
-
 // ==========================================================================
 void Process_Raw_Sensor_Data()
 {
     if (State.SensorCalibCounter > 0) {  // calibrate ADC offsets
       State.SensorCalibCounter--;
-      State.Ia = (State.adc_buffer.Va + State.Ia) / 2;
-      State.Ib = (State.adc_buffer.Vb + State.Ib) / 2;
+      State.Ia = ((adc_buffer.Va<<4) + State.Ia) / 2;
+      //State.Ib = ((adc_buffer.Vb<<4) + State.Ib) / 2;
       State.Status = DONE; // continue calabooration
       return;
     }
 
     // Fill in the information for State
-    State.H_VAL_now = HALL_Sense();
-    State.POS_now = map_h_val_to_h_pos[State.H_VAL_now];
-    State.Ia = State.adc_buffer.Va; // (State.Ia + adc_buffer[0])/2;
-    State.Ib = State.adc_buffer.Vb; // (State.Ib + adc_buffer[1])/2;
-    //State.Ic = computerPhaseC(State.Ia, State.Ib);
 
-    //State.TorquePWM_desired = (State.adc_buffer.Iout)%300;
+    State.Ia = (adc_buffer.Va<<4); // (State.Ia + (adc_buffer<<4)) / 2;
+    State.H_POS_last = State.H_POS_now;
+    State.H_POS_now = map_h_val_to_h_pos[HALL_Sense()];
+
+    if (State.H_POS_now == State.H_POS_last) { // no change
+	State.Status = DONE;
+	return;
+    }
+
+    if (State.PWM_now>0 && State.H_POS_now<3) {
+	H_Sector = H_Sector+1;
+	HAL_GPIO_TogglePin(LED_PORT, LED_PIN);
+    } else if (State.PWM_now<0 && State.H_POS_now>State.H_POS_last) {
+	//H_Sector = H_Sector-1;
+	//HAL_GPIO_TogglePin(LED_PORT, LED_PIN);
+    }
+
+    if (H_Sector >= 0)
+        State.ANGLE_now = H_Sector * MOTOR_H_SECTOR_SIZE + State.H_POS_now * MOTOR_H_STEP_SIZE;
+    else
+        State.ANGLE_now = H_Sector * MOTOR_H_SECTOR_SIZE - State.H_POS_now * MOTOR_H_STEP_SIZE;
 
     State.Status = READY;
 
@@ -203,7 +181,7 @@ void ADC1_Init(void)
   //hadc1.Init.ExternalTrigConv      = ADC_EXTERNALTRIGCONV_T1_CC1; 	// TIM1->CCR1 trigger
   //hadc1.Init.ExternalTrigConv      = ADC_SOFTWARE_START;		// software trigger
   hadc1.Init.DataAlign             = ADC_DATAALIGN_RIGHT;
-  hadc1.Init.NbrOfConversion       = 5;
+  hadc1.Init.NbrOfConversion       = 3;
   HAL_ADC_Init(&hadc1);
 
   // Configure the ADC multi-mode
@@ -227,7 +205,7 @@ void ADC1_Init(void)
   sConfig.Channel = ADC_CHANNEL_3;  // PA3
   sConfig.Rank    = ADC_REGULAR_RANK_3;
   HAL_ADC_ConfigChannel(&hadc1, &sConfig);
-
+/*
   sConfig.Channel = ADC_CHANNEL_4;  // PA4
   sConfig.Rank    = ADC_REGULAR_RANK_4;
   HAL_ADC_ConfigChannel(&hadc1, &sConfig);
@@ -236,12 +214,12 @@ void ADC1_Init(void)
   sConfig.Rank    = ADC_REGULAR_RANK_5;
   HAL_ADC_ConfigChannel(&hadc1, &sConfig);
 
-  //temperature requires at least 17.1uS sampling time
-  //sConfig.SamplingTime = ADC_SAMPLETIME_239CYCLES_5;
-  //sConfig.Channel = ADC_CHANNEL_TEMPSENSOR;  // internal temp
-  //sConfig.Rank    = 6;
-  //HAL_ADC_ConfigChannel(&hadc1, &sConfig);
-
+  temperature requires at least 17.1uS sampling time
+  sConfig.SamplingTime = ADC_SAMPLETIME_239CYCLES_5;
+  sConfig.Channel = ADC_CHANNEL_TEMPSENSOR;  // internal temp
+  sConfig.Rank    = 6;
+  HAL_ADC_ConfigChannel(&hadc1, &sConfig);
+*/
   __HAL_ADC_ENABLE(&hadc1);
 
   // If and when ADC1 is started with interrupt as HAL_ADC_Start_IT(&hadc1)
@@ -286,7 +264,7 @@ void DMA1_Init(void)
 
     __HAL_DMA_ENABLE(&hdma_adc1);
 
-    HAL_DMA_Start_IT(&hdma_adc1, (uint32_t) &(ADC1->DR), (uint32_t) &(State.adc_buffer), 5);
+    HAL_DMA_Start_IT(&hdma_adc1, (uint32_t) &(ADC1->DR), (uint32_t) &(adc_buffer), 3);
 
     // enable interrupt of DMA1_Channel1
     HAL_NVIC_SetPriority(DMA1_Channel1_IRQn, 0, 0);
@@ -300,7 +278,7 @@ void ADC1_2_IRQHandler(void)
     HAL_ADC_IRQHandler(&hadc1);
     __HAL_ADC_CLEAR_FLAG(&hadc1, ADC_FLAG_EOC); // clear this interrupt flag
 
-    State.adc_buffer.Vref = HAL_ADC_GetValue(&hadc1);	// get data from ADC1 to AD_RES
+    adc_buffer.Va = HAL_ADC_GetValue(&hadc1);	// get data from ADC1 to AD_RES
     //HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);     // show led here
 }
 
