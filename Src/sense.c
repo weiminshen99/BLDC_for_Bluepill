@@ -104,19 +104,21 @@ void Process_Raw_Sensor_Data()
 	return;
     }
 
-    //if (State.PWM_now>0 && State.H_POS_last==5) {
     if (State.PWM_now>0 && State.H_POS_last==5 && State.H_POS_now<5) {
+    //if (State.PWM_now>0 && State.H_POS_last==5) {
     //if (State.PWM_now>0 && State.H_POS_last==5 && (State.H_POS_now==0 || State.H_POS_now==1)) {
 	//H_Sector = H_Sector+1;
 	State.H_Sector_Counter = State.H_Sector_Counter + 1;
 	HAL_GPIO_TogglePin(LED_PORT, LED_PIN);
-    } else if (State.PWM_now<0 && State.H_POS_now>State.H_POS_last) {
+    //} else if (State.PWM_now<0 && State.H_POS_now>State.H_POS_last) {
+    } else if (State.PWM_now<0 && State.H_POS_last==0 && State.H_POS_now>0) {
 	//H_Sector = H_Sector-1;
-	//HAL_GPIO_TogglePin(LED_PORT, LED_PIN);
+	State.H_Sector_Counter = State.H_Sector_Counter - 1;
+	HAL_GPIO_TogglePin(LED_PORT, LED_PIN);
     }
 
-    State.ANGLE_now = State.H_Sector_Counter * MOTOR_H_SECTOR_SIZE + State.H_POS_now * MOTOR_H_STEP_SIZE;
-    //State.ANGLE_now = H_Sector * MOTOR_H_SECTOR_SIZE + State.H_POS_now * MOTOR_H_STEP_SIZE;
+    State.ANGLE_now = State.H_Sector_Counter * MOTOR_H_SECTOR_SIZE +
+		((State.PWM_now>=0) ? 1 : -1) * State.H_POS_now * MOTOR_H_STEP_SIZE;
 
     State.Status = READY;
 

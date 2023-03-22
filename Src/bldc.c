@@ -111,24 +111,20 @@ void BLDC_Step(int x)
 
     int ur, vr, wr;
 
-    if (x == -1) {
-
-	// use State.H_POS_now
+    if (x == -1) {  // -1 indicates to use State.H_POS_now
 	if (State.ANGLE_target == State.ANGLE_now) {
 	    State.PWM_now = 0; // stop
+	    //hall_pos_to_PWM(State.H_POS_last, State.PWM_now, &ur, &vr, &wr); // stay
 	}
-	else if (State.ANGLE_now < State.ANGLE_target && State.PWM_now <= 0) {
-	    State.PWM_now =  State.PWM_desired; // change dir
+	else {
+	    if (State.ANGLE_now < State.ANGLE_target && State.PWM_now <= 0)
+	        State.PWM_now =  State.PWM_desired; // change dir
+	    else if (State.ANGLE_now > State.ANGLE_target && State.PWM_now >= 0)
+	    	State.PWM_now = -State.PWM_desired; // change dir
+	    hall_pos_to_PWM(State.H_POS_now, State.PWM_now, &ur, &vr, &wr);
 	}
-	else if (State.ANGLE_now > State.ANGLE_target && State.PWM_now >= 0) {
-	    State.PWM_now = -State.PWM_desired; // change dir
- 	}
 
-	hall_pos_to_PWM(State.H_POS_now, State.PWM_now, &ur, &vr, &wr);
-
-    } else {
-
-	// use x as the input value
+    } else {  // use x as the input value
 	switch (State.InputType) {
 	   case H_POS: // x is h_pos
 		hall_pos_to_PWM(x, State.PWM_now, &ur, &vr, &wr);

@@ -47,11 +47,11 @@ int main(void)
   Motor_Timer_Start();
 
   // State_Init()
-  State.PWM_desired = 350;		// [-1000, 1000]
+  State.ANGLE_target = -360;
+  State.PWM_desired = -350;		// [-1000, 1000]
   State.PWM_now = State.PWM_desired;	// this may change by BLDC_step
   State.SensorCalibCounter = 0;		// 1000
   State.Ia = 2000;			// 2000
-  State.ANGLE_target = 360;
 
   uint8_t hallValue_sequence[6] = {1,3,2,6,4,5};
 
