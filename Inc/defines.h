@@ -30,12 +30,12 @@ typedef enum { READY, DONE } Status_t;
 
 typedef enum { H_VAL, H_POS, ANGLE, ROTATION } Input_Type_t;
 
-typedef struct {
-  uint32_t Va;
-  uint32_t Vb;
-  uint32_t Iout;
-  //uint32_t Vref;
-  //uint32_t temp;
+typedef struct { // type must be uint16_t
+  uint16_t Va;
+  uint16_t Vb;
+  uint16_t Vc;
+  uint16_t Vref;
+  //uint16_t temp;
 } adc_buf_t;
 
 typedef struct {

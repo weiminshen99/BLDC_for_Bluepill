@@ -186,7 +186,7 @@ void ADC1_Init(void)
   //hadc1.Init.ExternalTrigConv      = ADC_EXTERNALTRIGCONV_T1_CC1; 	// TIM1->CCR1 trigger
   //hadc1.Init.ExternalTrigConv      = ADC_SOFTWARE_START;		// software trigger
   hadc1.Init.DataAlign             = ADC_DATAALIGN_RIGHT;
-  hadc1.Init.NbrOfConversion       = 3;
+  hadc1.Init.NbrOfConversion       = 4;
   HAL_ADC_Init(&hadc1);
 
   // Configure the ADC multi-mode
@@ -210,11 +210,11 @@ void ADC1_Init(void)
   sConfig.Channel = ADC_CHANNEL_3;  // PA3
   sConfig.Rank    = ADC_REGULAR_RANK_3;
   HAL_ADC_ConfigChannel(&hadc1, &sConfig);
-/*
+
   sConfig.Channel = ADC_CHANNEL_4;  // PA4
   sConfig.Rank    = ADC_REGULAR_RANK_4;
   HAL_ADC_ConfigChannel(&hadc1, &sConfig);
-
+/*
   sConfig.Channel = ADC_CHANNEL_5;  // PA5
   sConfig.Rank    = ADC_REGULAR_RANK_5;
   HAL_ADC_ConfigChannel(&hadc1, &sConfig);
@@ -269,7 +269,8 @@ void DMA1_Init(void)
 
     __HAL_DMA_ENABLE(&hdma_adc1);
 
-    HAL_DMA_Start_IT(&hdma_adc1, (uint32_t) &(ADC1->DR), (uint32_t) &(adc_buffer), 3);
+    HAL_DMA_Start_IT(&hdma_adc1, (uint32_t) &(ADC1->DR), (uint32_t) &(adc_buffer), 4);
+    // according to the manual, the results in adc_buffer must be uint16_t
 
     // enable interrupt of DMA1_Channel1
     HAL_NVIC_SetPriority(DMA1_Channel1_IRQn, 0, 0);

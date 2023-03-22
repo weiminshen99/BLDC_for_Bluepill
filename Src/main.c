@@ -66,7 +66,11 @@ int main(void)
 
   while (1)
   {
-	Buzzer_Volume_Set(State.Ia);
+	//Buzzer_Volume_Set(State.Ia);
+	//Buzzer_Volume_Set(adc_buffer.Va);
+	//Buzzer_Volume_Set(adc_buffer.Vb);
+	//Buzzer_Volume_Set(adc_buffer.Vc);
+	Buzzer_Volume_Set(adc_buffer.Vref);
 
 	if (simulation==0) {
 	    if (State.Status == READY) { // wait for ADC1 did its job
