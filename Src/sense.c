@@ -45,15 +45,17 @@ void Sensors_Trigger_Start(uint8_t trigger)
 }
 
 // =============================================================
+// Sample frequence = ~ 18KHz or 28.0us
+//
 void DMA1_Channel1_IRQHandler(void)
 {
     DMA1->IFCR = DMA_IFCR_CTCIF1; // clear flag
-    //HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13); // show LED
+
+    //HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13); // show the sample frequency
 
     Emergency_Shut_Down();
 
     Process_Raw_Sensor_Data();
-
 }
 
 // ==============================================================
@@ -102,18 +104,19 @@ void Process_Raw_Sensor_Data()
 	return;
     }
 
-    if (State.PWM_now>0 && State.H_POS_now<3) {
-	H_Sector = H_Sector+1;
+    //if (State.PWM_now>0 && State.H_POS_last==5) {
+    if (State.PWM_now>0 && State.H_POS_last==5 && State.H_POS_now<5) {
+    //if (State.PWM_now>0 && State.H_POS_last==5 && (State.H_POS_now==0 || State.H_POS_now==1)) {
+	//H_Sector = H_Sector+1;
+	State.H_Sector_Counter = State.H_Sector_Counter + 1;
 	HAL_GPIO_TogglePin(LED_PORT, LED_PIN);
     } else if (State.PWM_now<0 && State.H_POS_now>State.H_POS_last) {
 	//H_Sector = H_Sector-1;
 	//HAL_GPIO_TogglePin(LED_PORT, LED_PIN);
     }
 
-    if (H_Sector >= 0)
-        State.ANGLE_now = H_Sector * MOTOR_H_SECTOR_SIZE + State.H_POS_now * MOTOR_H_STEP_SIZE;
-    else
-        State.ANGLE_now = H_Sector * MOTOR_H_SECTOR_SIZE - State.H_POS_now * MOTOR_H_STEP_SIZE;
+    State.ANGLE_now = State.H_Sector_Counter * MOTOR_H_SECTOR_SIZE + State.H_POS_now * MOTOR_H_STEP_SIZE;
+    //State.ANGLE_now = H_Sector * MOTOR_H_SECTOR_SIZE + State.H_POS_now * MOTOR_H_STEP_SIZE;
 
     State.Status = READY;
 
@@ -155,9 +158,9 @@ void HALL_Init(void)
 int HALL_Sense(void)
 {
   //determine next position based on hall sensors // WHY WHY Negation ??????
-  //uint8_t hall_ur = !(HALL_U_PORT->IDR & HALL_U_PIN);
-  //uint8_t hall_vr = !(HALL_V_PORT->IDR & HALL_V_PIN);
-  //uint8_t hall_wr = !(HALL_W_PORT->IDR & HALL_W_PIN);
+  //uint8_t hall_a = !(HALL_U_PORT->IDR & HALL_U_PIN);
+  //uint8_t hall_b = !(HALL_V_PORT->IDR & HALL_V_PIN);
+  //uint8_t hall_c = !(HALL_W_PORT->IDR & HALL_W_PIN);
 
   uint8_t hall_a = HAL_GPIO_ReadPin(HALL_U_PORT, HALL_U_PIN);
   uint8_t hall_b = HAL_GPIO_ReadPin(HALL_V_PORT, HALL_V_PIN);
@@ -293,7 +296,7 @@ void TIM3_Init(void)
   htim3.Instance = TIM3;
   htim3.Init.Prescaler = 0;
   htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim3.Init.Period = 10000; // also accessible via TIM3->ARR
+  htim3.Init.Period = 2000; // ~= 18KHz or 28.0us 
   htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
   if (HAL_TIM_Base_Init(&htim3) != HAL_OK) Error_Handler();

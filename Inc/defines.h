@@ -23,6 +23,9 @@
 #pragma once
 #include "stm32f1xx_hal.h"
 
+#define MOTOR_H_STEP_SIZE 	4	// each H_STEP is 5 degree
+#define MOTOR_H_SECTOR_SIZE	24	// each H_SECTOR is 30 degree (i.e., 6 H_STEPs)
+
 typedef enum { READY, DONE } Status_t;
 
 typedef enum { H_VAL, H_POS, ANGLE, ROTATION } Input_Type_t;
@@ -48,11 +51,6 @@ typedef struct {
   int		ANGLE_target;
   uint16_t 	SensorCalibCounter;
 } State_t;
-
-
-#define MOTOR_H_STEP_SIZE 	5	// each H_STEP is 5 degree
-#define MOTOR_H_SECTOR_SIZE	30	// each H_SECTOR is 30 degree (i.e., 6 H_STEPs)
-
 
 #define HALL_U_PIN GPIO_PIN_6
 #define HALL_U_PORT GPIOB
