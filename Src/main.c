@@ -28,7 +28,7 @@
 //
 volatile State_t State = {0};	// shared everywhere
 
-volatile int H_Sector = 0;
+const uint8_t hallValue_sequence[6] = {1,3,2,6,4,5};
 
 //
 // main function
@@ -41,7 +41,6 @@ int main(void)
   SystemClock_Config();
 
   LED_Init();
-
   Buzzer_Start();
   Sensors_Trigger_Start(3);
   Motor_Timer_Start();
@@ -52,15 +51,12 @@ int main(void)
   State.PWM_now = State.PWM_desired;	// this may change by BLDC_step
   State.SensorCalibCounter = 0;		// 1000
   State.Ia = 2000;			// 2000
-
-  uint8_t hallValue_sequence[6] = {1,3,2,6,4,5};
+  State.H_Sector_Counter = 0;
+  State.InputType = H_POS;	// Can be H_POS, ANGLE, or ROTATION, H_VAL
 
   int main_loop_counter = 0;
   int timeout = 0;
-
   int simulation = 0;		// ==0 for demo of sensor-driven
-  State.InputType = H_POS;	// Can be H_POS, ANGLE, or ROTATION, H_VAL
-
 
   HAL_GPIO_WritePin(LED_PORT, LED_PIN, 1); // turn off LED
 

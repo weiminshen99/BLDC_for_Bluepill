@@ -10,8 +10,38 @@
 // globle variables
 //
 
-// ===================================================================
+// =========================================================================
 inline void action_to_PWM(int pwm, int action, int *u, int *v, int *w)
+{
+      /*      Action	hover_PWM	std_PWM (c/a,a/c)
+        `================================================
+   	     	0	(b->c)		(b->a)
+        	1	(b->a)		(b->c)
+        	2	(c->a)		(a->c)
+        	3	(c->b)		(a->b)
+        	4	(a->b)		(c->b)
+        	5	(a->c)		(c->a)
+   */
+  switch (action) {
+    case 0:
+      *u = -pwm; *v = pwm; *w = 0; break; // b->a
+    case 1:
+      *u = 0; *v = pwm; *w = -pwm; break; // b->c
+    case 2:
+      *u = pwm; *v = 0; *w = -pwm; break; // a->c
+    case 3:
+      *u = pwm; *v = -pwm; *w = 0; break; // a->b
+    case 4:
+      *u = 0; *v = -pwm; *w = pwm; break; // c->b
+    case 5:
+      *u = -pwm; *v = 0; *w = pwm; break; // c->a
+    default:
+      *u = 0; *v = 0; *w = 0;
+  }
+}
+
+// =========================================================================
+inline void action_to_PWM_hover(int pwm, int action, int *u, int *v, int *w)
 {
       /*      Action	PWM
         `=====================

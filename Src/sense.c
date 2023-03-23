@@ -12,8 +12,6 @@
 #include "bldc.h"
 #include "sense.h"
 
-extern int H_Sector;
-
 // ==================================================================================
 void Sensors_Trigger_Start(uint8_t trigger)
 {
@@ -107,12 +105,10 @@ void Process_Raw_Sensor_Data()
     if (State.PWM_now>0 && State.H_POS_last==5 && State.H_POS_now<5) {
     //if (State.PWM_now>0 && State.H_POS_last==5) {
     //if (State.PWM_now>0 && State.H_POS_last==5 && (State.H_POS_now==0 || State.H_POS_now==1)) {
-	//H_Sector = H_Sector+1;
 	State.H_Sector_Counter = State.H_Sector_Counter + 1;
 	HAL_GPIO_TogglePin(LED_PORT, LED_PIN);
     //} else if (State.PWM_now<0 && State.H_POS_now>State.H_POS_last) {
     } else if (State.PWM_now<0 && State.H_POS_last==0 && State.H_POS_now>0) {
-	//H_Sector = H_Sector-1;
 	State.H_Sector_Counter = State.H_Sector_Counter - 1;
 	HAL_GPIO_TogglePin(LED_PORT, LED_PIN);
     }
