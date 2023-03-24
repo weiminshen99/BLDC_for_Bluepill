@@ -10,18 +10,51 @@
 // globle variables
 //
 
+
 // ===================================================================
 inline void action_to_PWM(int pwm, int action, int *u, int *v, int *w)
 {
-      /*      Action	PWM
-        `=====================
-   	     	0	(b->c)
-        	1	(b->a)
-        	2	(c->a)
-        	3	(c->b)
-        	4	(a->b)
-        	5	(a->c)
-   */
+	/*	Action	PWM
+        ========================
+		0	(c->b)
+		1	(a->b)
+		2	(a->c)
+		3	(b->c)
+		4	(b->a)
+		5	(c->a)
+	*/
+
+  switch (action) {
+    case 0:
+      *u = 0; *v = -pwm; *w = pwm; break; // (c->b)
+    case 1:
+      *u = pwm; *v = -pwm; *w = 0; break; // (a->b)
+    case 2:
+      *u = pwm; *v = 0; *w = -pwm; break; // (a->c)
+    case 3:
+      *u = 0; *v = pwm; *w = -pwm; break; // (b->c)
+    case 4:
+      *u = -pwm; *v = pwm; *w = 0; break; // (b->a)
+    case 5:
+      *u = -pwm; *v = 0; *w = pwm; break; // (c->a)
+    default:
+      *u = 0; *v = 0; *w = 0;
+  }
+}
+
+// ===================================================================
+inline void action_to_negative_PWM(int pwm, int action, int *u, int *v, int *w)
+{
+	/*	Action	PWM
+        ========================
+		0	-(c->b)
+		1	-(a->b)
+		2	-(a->c)
+		3	-(b->c)
+		4	-(b->a)
+		5	-(c->a)
+	*/
+
   switch (action) {
     case 0:
       *u = 0; *v = pwm; *w = -pwm; break; // b->c
@@ -46,7 +79,7 @@ inline void action_to_PWM(int pwm, int action, int *u, int *v, int *w)
 // the Hall_value oscilate back_forth very fast,
 // when I manually rotate the motor, it seems break everywhere, reluctent to move,
 // when left in a position,  it stays there with noise.
-inline void action_to_PWM_test(uint8_t action, int pwm, int *a, int *b, int *c)
+inline void action_to_fraction_PWM(uint8_t action, int pwm, int *a, int *b, int *c)
 {
    switch ( action ) {
       case 0:
@@ -69,14 +102,14 @@ inline void action_to_PWM_test(uint8_t action, int pwm, int *a, int *b, int *c)
 // ===========================================================================
 void hall_pos_to_PWM(uint8_t hall_pos, int pwm, int *u, int *v, int *w)
 {
-   /*   H_cba	     halH_pos	Action	PWM
+   /*   Hcba	H_pos	Action	+PWM
         =======================================
-        100    		0      	2 	(c->a)
-        101    		1      	3 	(c->b)
-        001    		2      	4 	(a->b)
-        011    		3      	5 	(a->c)
-        010    		4      	0 	(b->c)
-        110    		5      	1 	(b->a)
+        001	0	2	(a->c)
+        011	1	3	(b->c)
+        010	2	4	(b->a)
+        110	3	5	(c->a)
+        100	4	0	(c->b)
+        101	5	1	(a->b)
    */
    int action = ( hall_pos + 2 ) % 6;
    action_to_PWM(pwm, action, u, v, w);
@@ -96,12 +129,6 @@ void angle_to_PWM(int angle, int pwm, int *u, int *v, int *w)
     *u = pwm * sin( DEG(SinA) );
     *v = pwm * sin( DEG(SinB) );
     *w = pwm * sin( DEG(SinC) );
-}
-
-void rotation_to_PWM(int rotation, int pwm, int *u, int *v, int *w)
-{
-    // convert roations to x cycle + angles
-    // then call continus sin waves for u, v, w
 }
 
 // ======================================================
@@ -131,9 +158,6 @@ void BLDC_Step(int x)
 		break;
 	   case ANGLE: // x is angle [0,360]
 		angle_to_PWM(x, State.PWM_now, &ur, &vr, &wr);
-		break;
-    	   case ROTATION: // x is a rotation R.A
-		rotation_to_PWM(x, State.PWM_now, &ur, &vr, &wr);
 		break;
 	   default: break;
 	}

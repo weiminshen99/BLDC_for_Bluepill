@@ -63,7 +63,7 @@ int main(void)
 
   HAL_GPIO_WritePin(LED_PORT, LED_PIN, 1); // turn off LED
 
-  State.ANGLE_target = -360;
+  State.ANGLE_target = 360;
 
   while (1)
   {

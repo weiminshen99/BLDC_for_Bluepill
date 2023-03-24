@@ -12,7 +12,9 @@
 #include "bldc.h"
 #include "sense.h"
 
-extern int H_Sector;
+const uint8_t map_h_val_to_h_pos[8] = {0,0,2,1,4,5,3,6};
+
+//extern int H_Sector;
 
 // ==================================================================================
 void Sensors_Trigger_Start(uint8_t trigger)
@@ -78,9 +80,6 @@ inline int blockPhaseCurrent(int pos, int u, int v)
     default: return(0); // *u = 0;   // *v = 0;   // *w = 0;
    }
 }
-
-
-const uint8_t map_h_val_to_h_pos[8] = {0,0,2,1,4,5,3,6};
 
 // ==========================================================================
 void Process_Raw_Sensor_Data()
