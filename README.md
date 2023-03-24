@@ -62,16 +62,23 @@ one H_pos (or physical pos) into the next neighbor H_pos (or physical) position.
 
 For example, from a P_now to go to P_next, the motor should apply the action as follows:
 	
-	P_now		P_next	Action
+	P_now	(Hcba)	Action	P_next
 	================================
-	P0		P1	(c->a)
-	P0		P5	-(c->a)
-	...		...	...
-	P3		P4	(a->c)
-	P3		P2	-(a->c)
-	...		...	...
-	P5		P0	(b->a)
-	P5		P4	-(b->a)
+	forward
+	P0	(001)	(c->a)	P1
+	P1	(011)	(c->b)	P2
+	P2	(010)	(a->b)	P3
+	P3	(110)	(a->c)	P4
+	P4	(100)	(b->c)	P5
+	P5	(101)	(b->a)	P0
+
+	backward
+	P5	(101)	-(b->a)	P4
+	P4	(100)	-(b->c)	P3
+	P3	(110)	-(a->c)	P2
+	P2	(010)	-(a->b)	P1
+	P1	(011)	-(c->b)	P0
+	P0	(001)	-(c->a)	P5
 	=================================
 
 That is all, folks!
