@@ -106,11 +106,11 @@ void Process_Raw_Sensor_Data()
     //
     // Now Update H_Sector, a tricky business
     //
-    if (State.PWM_now>0 && State.H_POS_last==5 && State.H_POS_now<5) { // forward 5->[0..4]
+    if (State.PWM_now>=0 && State.H_POS_last==5 && State.H_POS_now<5) { // forward 5->[0..4]
 	State.H_Sector_Counter = State.H_Sector_Counter + 1;
 	HAL_GPIO_TogglePin(LED_PORT, LED_PIN);
     }
-    if (State.PWM_now<0 && State.H_POS_last==0 && State.H_POS_now>0) { // backward 0->[5..1]
+    if (State.PWM_now<=0 && State.H_POS_last==0 && State.H_POS_now>0) { // backward 0->[5..1]
 	State.H_Sector_Counter = State.H_Sector_Counter - 1;
 	HAL_GPIO_TogglePin(LED_PORT, LED_PIN);
     }
