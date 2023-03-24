@@ -12,6 +12,8 @@
 #include "bldc.h"
 #include "sense.h"
 
+extern int H_Sector;
+
 // ==================================================================================
 void Sensors_Trigger_Start(uint8_t trigger)
 {
@@ -98,17 +100,18 @@ void Process_Raw_Sensor_Data()
     State.H_POS_now = map_h_val_to_h_pos[HALL_Sense()];
 
     if (State.H_POS_now == State.H_POS_last) { // no change
-	State.Status = DONE;
+	State.Status = READY;	// continue action
 	return;
     }
 
-    if (State.PWM_now>0 && State.H_POS_last==5 && State.H_POS_now<5) {
-    //if (State.PWM_now>0 && State.H_POS_last==5) {
-    //if (State.PWM_now>0 && State.H_POS_last==5 && (State.H_POS_now==0 || State.H_POS_now==1)) {
+    //
+    // Now Update H_Sector, a tricky business
+    //
+    if (State.PWM_now>0 && State.H_POS_last==5 && State.H_POS_now<5) { // forward 5->[0..4]
 	State.H_Sector_Counter = State.H_Sector_Counter + 1;
 	HAL_GPIO_TogglePin(LED_PORT, LED_PIN);
-    //} else if (State.PWM_now<0 && State.H_POS_now>State.H_POS_last) {
-    } else if (State.PWM_now<0 && State.H_POS_last==0 && State.H_POS_now>0) {
+    }
+    if (State.PWM_now<0 && State.H_POS_last==0 && State.H_POS_now>0) { // backward 0->[5..1]
 	State.H_Sector_Counter = State.H_Sector_Counter - 1;
 	HAL_GPIO_TogglePin(LED_PORT, LED_PIN);
     }
@@ -182,7 +185,7 @@ void ADC1_Init(void)
   //hadc1.Init.ExternalTrigConv      = ADC_EXTERNALTRIGCONV_T1_CC1; 	// TIM1->CCR1 trigger
   //hadc1.Init.ExternalTrigConv      = ADC_SOFTWARE_START;		// software trigger
   hadc1.Init.DataAlign             = ADC_DATAALIGN_RIGHT;
-  hadc1.Init.NbrOfConversion       = 4;
+  hadc1.Init.NbrOfConversion       = 3;
   HAL_ADC_Init(&hadc1);
 
   // Configure the ADC multi-mode
@@ -206,11 +209,11 @@ void ADC1_Init(void)
   sConfig.Channel = ADC_CHANNEL_3;  // PA3
   sConfig.Rank    = ADC_REGULAR_RANK_3;
   HAL_ADC_ConfigChannel(&hadc1, &sConfig);
-
+/*
   sConfig.Channel = ADC_CHANNEL_4;  // PA4
   sConfig.Rank    = ADC_REGULAR_RANK_4;
   HAL_ADC_ConfigChannel(&hadc1, &sConfig);
-/*
+
   sConfig.Channel = ADC_CHANNEL_5;  // PA5
   sConfig.Rank    = ADC_REGULAR_RANK_5;
   HAL_ADC_ConfigChannel(&hadc1, &sConfig);
@@ -265,8 +268,7 @@ void DMA1_Init(void)
 
     __HAL_DMA_ENABLE(&hdma_adc1);
 
-    HAL_DMA_Start_IT(&hdma_adc1, (uint32_t) &(ADC1->DR), (uint32_t) &(adc_buffer), 4);
-    // according to the manual, the results in adc_buffer must be uint16_t
+    HAL_DMA_Start_IT(&hdma_adc1, (uint32_t) &(ADC1->DR), (uint32_t) &(adc_buffer), 3);
 
     // enable interrupt of DMA1_Channel1
     HAL_NVIC_SetPriority(DMA1_Channel1_IRQn, 0, 0);

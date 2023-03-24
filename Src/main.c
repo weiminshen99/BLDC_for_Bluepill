@@ -28,7 +28,10 @@
 //
 volatile State_t State = {0};	// shared everywhere
 
+//volatile int H_Sector = 0;
+
 const uint8_t hallValue_sequence[6] = {1,3,2,6,4,5};
+
 
 //
 // main function
@@ -41,41 +44,40 @@ int main(void)
   SystemClock_Config();
 
   LED_Init();
+
   Buzzer_Start();
   Sensors_Trigger_Start(3);
   Motor_Timer_Start();
 
   // State_Init()
-  State.ANGLE_target = 360;
-  State.PWM_desired = 300;		// [-1000, 1000]
-  State.PWM_now = State.PWM_desired;	// this may change by BLDC_step
+  State.PWM_Volume = 300;		// [0, 1000]
+  State.PWM_now = State.PWM_Volume;	// + forward, - backward, the sign may change by BLDC_step
   State.SensorCalibCounter = 0;		// 1000
   State.Ia = 2000;			// 2000
-  State.H_Sector_Counter = 0;
-  State.InputType = H_POS;	// Can be H_POS, ANGLE, or ROTATION, H_VAL
 
   int main_loop_counter = 0;
   int timeout = 0;
-  int simulation = 0;		// ==0 for demo of sensor-driven
+
+  int close_loop_control = 1;	// close_loop means sensor-driven
+  State.InputType = H_POS;	// Can be H_POS, ANGLE, or ROTATION, H_VAL
 
   HAL_GPIO_WritePin(LED_PORT, LED_PIN, 1); // turn off LED
 
+  State.ANGLE_target = -360;
+
   while (1)
   {
-	//Buzzer_Volume_Set(State.Ia);
-	//Buzzer_Volume_Set(adc_buffer.Va);
-	//Buzzer_Volume_Set(adc_buffer.Vb);
-	//Buzzer_Volume_Set(adc_buffer.Vc);
-	Buzzer_Volume_Set(adc_buffer.Vref);
+	Buzzer_Volume_Set(State.Ia);
 
-	State.ANGLE_target = adc_buffer.Vref - 2048;
-
-	if (simulation==0) {
+	if (close_loop_control == 1) {
 	    if (State.Status == READY) { // wait for ADC1 did its job
 	       BLDC_Step(-1); // -1 means use State.H_VAL_now
 	    }
         } else { // call BLDC_Step with the simulated input
-	    HAL_Delay(10); // simulate the time for ADC1 reading
+
+	    HAL_Delay(1); // simulate the time for ADC1 reading
+	    State.Status = READY;
+
 	    if (State.InputType == H_VAL) {
 		BLDC_Step(hallValue_sequence[main_loop_counter%6]);
 	    } else if (State.InputType == H_POS) {
