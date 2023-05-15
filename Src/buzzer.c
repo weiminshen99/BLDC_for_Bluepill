@@ -1,6 +1,8 @@
 
 #include "buzzer.h"
 
+TIM_HandleTypeDef htim2;
+
 void Buzzer_Start(void)
 {
     Buzzer_Timer_Init();

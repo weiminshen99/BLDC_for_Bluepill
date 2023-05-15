@@ -12,6 +12,13 @@
 #include "bldc.h"
 #include "sense.h"
 
+extern volatile State_t State;
+
+ADC_HandleTypeDef hadc1;
+DMA_HandleTypeDef hdma_adc1;
+TIM_HandleTypeDef htim3;
+volatile adc_buf_t adc_buffer;
+
 const uint8_t map_h_val_to_h_pos[8] = {0,0,2,1,4,5,3,6};
 
 //extern int H_Sector;

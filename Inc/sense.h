@@ -5,14 +5,6 @@
 #include "defines.h"
 #include "sysinit.h"
 
-ADC_HandleTypeDef hadc1;
-DMA_HandleTypeDef hdma_adc1;
-TIM_HandleTypeDef htim3;
-
-extern volatile State_t State;
-
-volatile adc_buf_t adc_buffer;
-
 void ADC1_Init(void);
 void DMA1_Init(void);
 void TIM3_Init(void);

@@ -10,6 +10,9 @@
 // globle variables
 //
 
+extern volatile State_t State;
+
+TIM_HandleTypeDef htim1;
 
 // ===================================================================
 inline void action_to_PWM(int pwm, int action, int *u, int *v, int *w)
